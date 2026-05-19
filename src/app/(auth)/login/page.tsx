@@ -11,8 +11,8 @@ export default function LoginPage() {
         <div className="text-center">
           <div className="mb-8">
             <Image
-              src="/orientala/orientala-spa-white-logo.png"
-              alt="Orientala Spa Logo"
+              src="/webconnection/spa-logo.png"
+              alt="Web Connection Spa Logo"
               width={326}
               height={200}
             />

@@ -113,8 +113,8 @@ export default function SelectBranchPage() {
           <div className="flex items-center gap-3">
             <div className="bg-secondary p-2 rounded-lg">
               <Image
-                src="/orientala/orientala-spa-logo.png"
-                alt="Orientala Spa"
+                src="/webconnection/spa-logo.png"
+                alt="Web Connection Spa"
                 width={100}
                 height={32}
                 className="object-contain"

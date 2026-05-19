@@ -176,7 +176,7 @@ export default function ViewBookingPage() {
       paymentMethod: bookingData.payments?.[0]?.method || "Not specified",
       captureId: bookingData.payments?.[0]?.paypalCaptureId || undefined,
       spaLogo: session?.metadata?.logo_url,
-      primaryColor: session?.metadata?.primary_color || "#245743",
+      primaryColor: session?.metadata?.primary_color || "#00CC66",
       branchName: bookingData.branch?.name,
       branchPhone: bookingData.branch?.phone,
       branchEmail: bookingData.branch?.email,

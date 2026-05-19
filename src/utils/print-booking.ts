@@ -27,7 +27,7 @@ export interface PrintBookingData {
 }
 
 export function generatePrintBookingHTML(data: PrintBookingData): string {
-  const PRIMARY = data.primaryColor || "#245743";
+  const PRIMARY = data.primaryColor || "#00CC66";
   const LIGHT_BG = "#F0FAF6";
   const spaLogo = data.spaLogo || "https://via.placeholder.com/150";
 

@@ -317,7 +317,7 @@ export default function BookingsPage() {
       branchPhone: booking.branch?.phone,
       branchEmail: booking.branch?.email,
       spaLogo: session?.metadata?.logo_url,
-      primaryColor: session?.metadata?.primary_color || "#245743",
+      primaryColor: session?.metadata?.primary_color || "#00CC66",
     };
 
     printBooking(printData);
