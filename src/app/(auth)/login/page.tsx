@@ -24,8 +24,9 @@ export default function LoginPage() {
       <div className="w-full md:w-1/2 flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Welcome</h1>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Welcome Orientala Spa
+              Web Connection Spa
             </h1>
             <p className="text-muted-foreground text-balance">
               Enter your email to sign in to your account
@@ -35,7 +36,7 @@ export default function LoginPage() {
           <LoginForm />
 
           <p className="text-center text-xs text-muted-foreground mt-6">
-            © 2026 Orientala Spa. All rights reserved.
+            © 2026 Web Connection Spa. All rights reserved.
           </p>
         </div>
       </div>

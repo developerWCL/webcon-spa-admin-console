@@ -281,19 +281,16 @@ export default function SettingsPage() {
           {"Manage your spa system configuration and preferences"}
         </p>
       </div>
-
       {/* {submitMessage && (
         <div className="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
           {submitMessage}
         </div>
       )} */}
-
       {isLoading && (
         <div className="p-4 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
           Loading branch information...
         </div>
       )}
-
       {/* Business Information Form */}
       <Card>
         <CardHeader>
@@ -393,7 +390,6 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
-
       {/* Operating Hours Form */}
       <Card>
         <CardHeader>
@@ -441,6 +437,7 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
+      <PaypalIntegration /> {/* PayPal Integration Component */}
     </div>
   );
 }

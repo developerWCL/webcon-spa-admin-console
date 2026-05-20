@@ -64,7 +64,7 @@ export function ScheduleTab({
         .map((item) => {
           // filter today only and have bed or room only
           const scheduleDate = new Date(item.scheduledDate);
-          const today = new Date();
+          const today = selectedDate ? new Date(selectedDate) : new Date();
           const isToday =
             scheduleDate.getDate() === today.getDate() &&
             scheduleDate.getMonth() === today.getMonth() &&
@@ -84,7 +84,6 @@ export function ScheduleTab({
         .filter((item): item is ScheduleBookingItem => item !== null);
     });
   }, [bookings]);
-
   return (
     <Card>
       <CardHeader>

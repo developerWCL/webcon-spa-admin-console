@@ -119,7 +119,7 @@ export const ServiceCard = ({
     try {
       const bookingEngineUrl =
         process.env.NEXT_PUBLIC_BOOKING_ENGINE_URL ||
-        "https://orientalaspa.webconnection.app";
+        "https://spa.webconnection.app";
       // bookingEngineUrl/spaId?branchId=branchId&serviceId=id&serviceType=service
       const spaId = session?.spaIds?.[0] || "default-spa";
 

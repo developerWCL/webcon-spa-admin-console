@@ -144,7 +144,7 @@ export default function PackagesPage() {
     try {
       const bookingEngineUrl =
         process.env.NEXT_PUBLIC_BOOKING_ENGINE_URL ||
-        "https://orientalaspa.webconnection.app";
+        "https://spa.webconnection.app";
       const spaId = session?.spaIds?.[0] || "default-spa";
 
       const bookingLink = `${bookingEngineUrl}/${spaId}?branchId=${branchId}&serviceId=${packageId}&serviceType=packages`;
