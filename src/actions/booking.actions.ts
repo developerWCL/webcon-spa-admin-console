@@ -165,28 +165,7 @@ export async function getBookingById(
           time: item.scheduledTime || "",
           guests: item.guests || [],
         })) || [],
-      totalPrice: (() => {
-        const apiTotalAmount = parseFloat(result.totalAmount || "0");
-        // If API returns 0, try to calculate from items as fallback
-        if (apiTotalAmount === 0 && result.items && result.items.length > 0) {
-          const calculatedTotal = result.items.reduce(
-            (sum: number, item: any) => {
-              const price =
-                item.price ||
-                item.subService?.price ||
-                item.package?.price ||
-                item.programme?.price ||
-                0;
-              const quantity = item.quantity || 1;
-              return sum + price * quantity;
-            },
-            0,
-          );
-
-          return calculatedTotal;
-        }
-        return apiTotalAmount;
-      })(),
+      totalPrice: result.amount || 0,
       status: result.status || "pending",
       payments:
         result.payments?.map((payment: any) => ({
