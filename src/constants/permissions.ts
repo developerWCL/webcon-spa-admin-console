@@ -32,8 +32,8 @@ export const FEATURES = {
     href: "dashboard/bookings",
   },
   customers: {
-    name: "Customers",
-    href: "dashboard/customers",
+    name: "Guest & Members",
+    href: "dashboard/guest&members",
   },
   staff: {
     name: "Staff",

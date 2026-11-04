@@ -30,6 +30,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import {
   PromotionFormData,
   PromotionSchema,
+  PromotionGuestType,
   ActiveDayWithTime,
 } from "@/schemas/promotion.schema";
 import {
@@ -116,11 +117,13 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
       serviceIds: [],
       packageIds: [],
       programmeIds: [],
+      maxUsedPerAccount: undefined,
+      guestType: "all_guests",
     },
   });
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [removedMediaIds, setRemovedMediaIds] = React.useState<string[]>([]);
-
+console.log("form", form.formState.errors);
   // Fetch services, packages, and programmes
   useEffect(() => {
     if (!open || !branchId) return;
@@ -214,6 +217,8 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
         endDate: selectedPromotion.endDate,
         minPurchaseAmount: String(selectedPromotion.minPurchaseAmount || ""),
         maxUsed: selectedPromotion.maxUsed,
+        maxUsedPerAccount: selectedPromotion.maxUsedPerAccount,
+        guestType: selectedPromotion.guestType || "all_guests",
         activeDays: normalizedDays,
         branchId: selectedPromotion.branch.id,
         status: selectedPromotion.status,
@@ -234,6 +239,8 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
         endDate: "",
         minPurchaseAmount: "",
         maxUsed: undefined,
+        maxUsedPerAccount: undefined,
+        guestType: "all_guests",
         activeDays: [
           { day: "mon", allDay: true },
           { day: "tue", allDay: true },
@@ -407,9 +414,21 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
                   );
                 }
 
-                // Convert blob to ArrayBuffer for server action transmission
-                const arrayBuffer = await blob.arrayBuffer();
-                await uploadImageToS3(uploadUrl.url, arrayBuffer, "image/jpeg");
+                // Upload directly to S3 from client using presigned URL
+                const response = await fetch(uploadUrl.url, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "image/jpeg",
+                  },
+                  body: blob,
+                });
+
+                if (!response.ok) {
+                  throw new Error(
+                    `S3 upload failed with status ${response.status}`,
+                  );
+                }
+
                 mediaIds.push(uploadUrl.mediaId);
               } catch (error) {
                 console.error(`Failed to upload image ${i}:`, error);
@@ -434,10 +453,10 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
 
       if (selectedPromotion) {
         await updatePromotion(selectedPromotion.id, finalData);
-        toast.success("Promotion updated successfully");
+        toast.success("Offer updated successfully");
       } else {
         await createPromotion(branchId, finalData);
-        toast.success("Promotion created successfully");
+        toast.success("Offer created successfully");
       }
       handleClose();
       refreshPromotions();
@@ -456,8 +475,8 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
         isImageError
           ? "Failed to process images"
           : selectedPromotion
-            ? "Failed to update promotion"
-            : "Failed to create promotion",
+            ? "Failed to update offer"
+            : "Failed to create offer",
         {
           description: errorMessage,
         },
@@ -475,12 +494,12 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
       >
         <DialogHeader>
           <DialogTitle className="text-2xl">
-            {selectedPromotion ? "Edit Promotion" : "Create Promotion"}
+            {selectedPromotion ? "Edit Offer" : "Create Offer"}
           </DialogTitle>
           <DialogDescription>
             {selectedPromotion
-              ? "Edit the details of your promotion"
-              : "Create a discount code or promotion for your services"}
+              ? "Edit the details of your offer"
+              : "Create a discount code or offer for your services"}
           </DialogDescription>
         </DialogHeader>
 
@@ -488,7 +507,9 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
         {isLoadingPromotion && (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading promotion details...</p>
+            <p className="text-sm text-muted-foreground">
+              Loading promotion details...
+            </p>
           </div>
         )}
 
@@ -509,76 +530,27 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
 
         {!isLoadingPromotion && (
           <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Section 1: Basic Information */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
-                  1
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Section 1: Basic Information */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
+                    1
+                  </div>
+                  <h3 className="font-semibold text-lg">Basic Information</h3>
                 </div>
-                <h3 className="font-semibold text-lg">Basic Information</h3>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Promotion Name <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Summer Special"
-                          {...field}
-                          className="bg-white"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
                   <FormField
                     control={form.control}
-                    name="discountType"
+                    name="name"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>
-                          Discount Type <span className="text-red-500">*</span>
+                          Offer Name <span className="text-red-500">*</span>
                         </FormLabel>
                         <FormControl>
-                          <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger className="bg-white w-full">
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percentage">
-                                Percentage
-                              </SelectItem>
-                              <SelectItem value="fixed">
-                                Fixed Amount
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="discountValue"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Discount Value</FormLabel>
-                        <FormControl>
                           <Input
-                            type="number"
-                            placeholder="20"
+                            placeholder="Summer Special"
                             {...field}
                             className="bg-white"
                           />
@@ -587,628 +559,753 @@ const AddPromotionDialog: React.FC<AddPromotionDialogProps> = ({
                       </FormItem>
                     )}
                   />
-                </div>
-                <FormField
-                  control={form.control}
-                  name="code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Promotion Code <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="SUMMER20"
-                          {...field}
-                          className="bg-white"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe the promotion..."
-                          {...field}
-                          className="bg-white h-24"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Image Upload Section */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Promotion Images</h3>
-              <div className="border-2 border-dashed rounded-lg p-6">
-                {(form.watch("imageUrls") &&
-                  form.watch("imageUrls")!.length > 0) ||
-                (selectedPromotion?.media &&
-                  selectedPromotion.media.filter(
-                    (m: any) => !removedMediaIds.includes(m.id),
-                  ).length > 0) ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                      {/* Show existing promotion images when editing */}
-                      {selectedPromotion?.media &&
-                        selectedPromotion.media.map(
-                          (image: any, index: number) =>
-                            !removedMediaIds.includes(image.id) && (
-                              <div
-                                key={`existing-${index}`}
-                                className="relative group"
-                              >
-                                <img
-                                  src={image.url}
-                                  alt={`Existing ${index + 1}`}
-                                  className="w-full h-32 object-cover rounded border"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveExistingMedia(image.id)
-                                  }
-                                  className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                  title="Click to remove image"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ),
-                        )}
-                      {/* Show newly uploaded images */}
-                      {form.watch("imageUrls")!.map((image, index) => (
-                        <div key={`new-${index}`} className="relative group">
-                          <img
-                            src={image}
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded border"
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="discountType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Discount Type{" "}
+                            <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Select
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            >
+                              <SelectTrigger className="bg-white w-full">
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="percentage">
+                                  Percentage
+                                </SelectItem>
+                                <SelectItem value="fixed">
+                                  Fixed Amount
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="discountValue"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Discount Value</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="20"
+                              {...field}
+                              className="bg-white"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Offer Code <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="SUMMER20"
+                            {...field}
+                            className="bg-white"
                           />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveImage(index)}
-                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describe the promotion..."
+                            {...field}
+                            className="bg-white h-24"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Image Upload Section */}
+              <div className="space-y-4">
+                <h3 className="font-semibold">Offer Images</h3>
+                <div className="border-2 border-dashed rounded-lg p-6">
+                  {(form.watch("imageUrls") &&
+                    form.watch("imageUrls")!.length > 0) ||
+                  (selectedPromotion?.media &&
+                    selectedPromotion.media.filter(
+                      (m: any) => !removedMediaIds.includes(m.id),
+                    ).length > 0) ? (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {/* Show existing promotion images when editing */}
+                        {selectedPromotion?.media &&
+                          selectedPromotion.media.map(
+                            (image: any, index: number) =>
+                              !removedMediaIds.includes(image.id) && (
+                                <div
+                                  key={`existing-${index}`}
+                                  className="relative group"
+                                >
+                                  <img
+                                    src={image.url}
+                                    alt={`Existing ${index + 1}`}
+                                    className="w-full h-32 object-cover rounded border"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveExistingMedia(image.id)
+                                    }
+                                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Click to remove image"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ),
+                          )}
+                        {/* Show newly uploaded images */}
+                        {form.watch("imageUrls")!.map((image, index) => (
+                          <div key={`new-${index}`} className="relative group">
+                            <img
+                              src={image}
+                              alt={`Preview ${index + 1}`}
+                              className="w-full h-32 object-cover rounded border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(index)}
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-center">
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          id="image-upload-multiple"
+                        />
+                        <label htmlFor="image-upload-multiple">
+                          <Button asChild variant="outline" size="sm">
+                            <span>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add More Images
+                            </span>
+                          </Button>
+                        </label>
+                      </div>
                     </div>
-                    <div className="text-center">
+                  ) : (
+                    <div className="space-y-2 text-center">
+                      <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">
+                        Drag or click to upload offer images
+                      </p>
                       <input
                         type="file"
                         multiple
                         accept="image/*"
                         onChange={handleImageUpload}
                         className="hidden"
-                        id="image-upload-multiple"
+                        id="image-upload"
                       />
-                      <label htmlFor="image-upload-multiple">
+                      <label htmlFor="image-upload">
                         <Button asChild variant="outline" size="sm">
                           <span>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add More Images
+                            <Upload className="h-4 w-4 mr-2" />
+                            Choose Images
                           </span>
                         </Button>
                       </label>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 2: Validity Period & Conditions */}
+              <div className="space-y-4 mt-8">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
+                    2
                   </div>
-                ) : (
-                  <div className="space-y-2 text-center">
-                    <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Drag or click to upload promotion images
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      Validity & Conditions
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-3 col-span-2">
+                      Choose the date when customers typically come to receive
+                      your services. The promotion will only apply on these
+                      selected dates.
                     </p>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="image-upload"
-                    />
-                    <label htmlFor="image-upload">
-                      <Button asChild variant="outline" size="sm">
-                        <span>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Choose Images
-                        </span>
-                      </Button>
-                    </label>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                  <div className="grid grid-cols-2 gap-x-4">
+                    <FormField
+                      control={form.control}
+                      name="startDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
 
-            {/* Section 2: Validity Period & Conditions */}
-            <div className="space-y-4 mt-8">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
-                  2
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    Validity & Conditions
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-3 col-span-2">
-                    Choose the date when customers typically come to receive
-                    your services. The promotion will only apply on these
-                    selected dates.
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                <div className="grid grid-cols-2 gap-x-4">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Date</FormLabel>
-
-                        <FormControl>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant={"outline"}
-                                className={
-                                  "w-full justify-start text-left font-normal bg-white" +
-                                  (!field.value ? " text-muted-foreground" : "")
-                                }
+                          <FormControl>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant={"outline"}
+                                  className={
+                                    "w-full justify-start text-left font-normal bg-white" +
+                                    (!field.value
+                                      ? " text-muted-foreground"
+                                      : "")
+                                  }
+                                >
+                                  {field.value
+                                    ? format(
+                                        new Date(field.value),
+                                        "yyyy-MM-dd",
+                                      )
+                                    : "Pick a date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
                               >
-                                {field.value
-                                  ? format(new Date(field.value), "yyyy-MM-dd")
-                                  : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                              className="w-auto p-0"
-                              align="start"
-                            >
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  field.value
-                                    ? new Date(field.value)
-                                    : undefined
-                                }
-                                onSelect={(date) => {
-                                  field.onChange(
-                                    date ? format(date, "yyyy-MM-dd") : "",
-                                  );
-                                }}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Date</FormLabel>
-                        <FormControl>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant={"outline"}
-                                className={
-                                  "w-full justify-start text-left font-normal bg-white" +
-                                  (!field.value ? " text-muted-foreground" : "")
-                                }
+                                <Calendar
+                                  mode="single"
+                                  selected={
+                                    field.value
+                                      ? new Date(field.value)
+                                      : undefined
+                                  }
+                                  onSelect={(date) => {
+                                    field.onChange(
+                                      date ? format(date, "yyyy-MM-dd") : "",
+                                    );
+                                  }}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="endDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>End Date</FormLabel>
+                          <FormControl>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant={"outline"}
+                                  className={
+                                    "w-full justify-start text-left font-normal bg-white" +
+                                    (!field.value
+                                      ? " text-muted-foreground"
+                                      : "")
+                                  }
+                                >
+                                  {field.value
+                                    ? format(
+                                        new Date(field.value),
+                                        "yyyy-MM-dd",
+                                      )
+                                    : "Pick a date"}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
                               >
-                                {field.value
-                                  ? format(new Date(field.value), "yyyy-MM-dd")
-                                  : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                              className="w-auto p-0"
-                              align="start"
-                            >
-                              <Calendar
-                                mode="single"
-                                selected={
-                                  field.value
-                                    ? new Date(field.value)
-                                    : undefined
-                                }
-                                onSelect={(date) => {
-                                  field.onChange(
-                                    date ? format(date, "yyyy-MM-dd") : "",
-                                  );
-                                }}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+                                <Calendar
+                                  mode="single"
+                                  selected={
+                                    field.value
+                                      ? new Date(field.value)
+                                      : undefined
+                                  }
+                                  onSelect={(date) => {
+                                    field.onChange(
+                                      date ? format(date, "yyyy-MM-dd") : "",
+                                    );
+                                  }}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="minPurchaseAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Min Purchase (THB)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="1000"
+                              {...field}
+                              className="bg-white"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="maxUsed"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Usage Limit (0 for unlimited)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="100"
+                              {...field}
+                              className="bg-white"
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value, 10);
+                                field.onChange(
+                                  isNaN(value) ? undefined : value,
+                                );
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
-                    name="minPurchaseAmount"
+                    name="guestType"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Min Purchase (THB)</FormLabel>
+                      <FormItem className="flex flex-row items-center gap-3 space-y-0">
                         <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="1000"
-                            {...field}
-                            className="bg-white"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="maxUsed"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Usage Limit (0 for unlimited)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="100"
-                            {...field}
-                            className="bg-white"
-                            onChange={(e) => {
-                              const value = parseInt(e.target.value, 10);
-                              field.onChange(isNaN(value) ? undefined : value);
+                          <Checkbox
+                            checked={field.value === "authenticated_only"}
+                            onCheckedChange={(checked) => {
+                              field.onChange(
+                                checked ? "authenticated_only" : "all_guests",
+                              );
                             }}
                           />
                         </FormControl>
+                        <FormLabel className="!mt-0 cursor-pointer font-normal">
+                          Authenticated Guests Only
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  {form.watch("guestType") === "authenticated_only" && (
+                    <FormField
+                      control={form.control}
+                      name="maxUsedPerAccount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Per Account Limit (0 for unlimited)
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="1"
+                              {...field}
+                              className="bg-white"
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value, 10);
+                                field.onChange(
+                                  isNaN(value) ? undefined : value,
+                                );
+                              }}
+                            />
+                          </FormControl>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Limits how many times each customer can use this
+                            promotion
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  <FormField
+                    control={form.control}
+                    name="activeDays"
+                    key={`activeDays-${selectedPromotion?.id || "new"}`}
+                    render={({ field }) => {
+                      // Watch for changes to ensure re-render
+                      const watchedActiveDays = form.watch("activeDays");
+                      return (
+                        <FormItem>
+                          <FormLabel>Active Days & Times</FormLabel>
+                          <p className="text-xs text-muted-foreground">
+                            Select which days (booking day) the promotion is
+                            active. For each day, choose "All Day" or set
+                            specific times.
+                          </p>
+                          <FormControl>
+                            <div className="space-y-4">
+                              {[
+                                { value: "mon", label: "Monday" },
+                                { value: "tue", label: "Tuesday" },
+                                { value: "wed", label: "Wednesday" },
+                                { value: "thu", label: "Thursday" },
+                                { value: "fri", label: "Friday" },
+                                { value: "sat", label: "Saturday" },
+                                { value: "sun", label: "Sunday" },
+                              ].map((dayOption) => {
+                                const dayData = (watchedActiveDays || [])?.find(
+                                  (d: ActiveDayWithTime) =>
+                                    d.day === dayOption.value,
+                                ) as ActiveDayWithTime | undefined;
+                                const isActive = !!dayData;
+
+                                return (
+                                  <div
+                                    key={dayOption.value}
+                                    className="border rounded-lg p-3 hover:bg-gray-100 transition-colors"
+                                  >
+                                    <div className="flex items-center justify-between mb-3">
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <Checkbox
+                                          checked={isActive}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              field.onChange([
+                                                ...(field.value || []),
+                                                {
+                                                  day: dayOption.value,
+                                                  allDay: true,
+                                                },
+                                              ]);
+                                            } else {
+                                              field.onChange(
+                                                (field.value || []).filter(
+                                                  (d: ActiveDayWithTime) =>
+                                                    d.day !== dayOption.value,
+                                                ),
+                                              );
+                                            }
+                                          }}
+                                        />
+                                        <span className="font-medium text-sm">
+                                          {dayOption.label}
+                                        </span>
+                                      </label>
+                                    </div>
+
+                                    {isActive && (
+                                      <div className="ml-6 space-y-3 bg-white p-3 rounded-md border border-gray-200">
+                                        <div className="flex items-center gap-2">
+                                          <Checkbox
+                                            checked={dayData?.allDay || false}
+                                            onCheckedChange={(checked) => {
+                                              const updatedDays = (
+                                                field.value || []
+                                              ).map((d: ActiveDayWithTime) =>
+                                                d.day === dayOption.value
+                                                  ? {
+                                                      ...d,
+                                                      allDay: !!checked,
+                                                    }
+                                                  : d,
+                                              );
+                                              field.onChange(updatedDays);
+                                            }}
+                                          />
+                                          <Label className="text-xs font-medium cursor-pointer">
+                                            All Day
+                                          </Label>
+                                        </div>
+
+                                        {!dayData?.allDay && (
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                              <Label className="text-xs text-muted-foreground mb-1 block">
+                                                Start Time
+                                              </Label>
+                                              <Input
+                                                type="time"
+                                                value={dayData?.startTime || ""}
+                                                onChange={(e) => {
+                                                  const updatedDays = (
+                                                    field.value || []
+                                                  ).map(
+                                                    (d: ActiveDayWithTime) =>
+                                                      d.day === dayOption.value
+                                                        ? {
+                                                            ...d,
+                                                            startTime:
+                                                              e.target.value,
+                                                          }
+                                                        : d,
+                                                  );
+                                                  field.onChange(updatedDays);
+                                                }}
+                                                className="bg-white h-8 text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <Label className="text-xs text-muted-foreground mb-1 block">
+                                                End Time
+                                              </Label>
+                                              <Input
+                                                type="time"
+                                                value={dayData?.endTime || ""}
+                                                onChange={(e) => {
+                                                  const updatedDays = (
+                                                    field.value || []
+                                                  ).map(
+                                                    (d: ActiveDayWithTime) =>
+                                                      d.day === dayOption.value
+                                                        ? {
+                                                            ...d,
+                                                            endTime:
+                                                              e.target.value,
+                                                          }
+                                                        : d,
+                                                  );
+                                                  field.onChange(updatedDays);
+                                                }}
+                                                className="bg-white h-8 text-sm"
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </FormControl>
+
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Section 3: Apply to Services, Packages & Programmes */}
+              <div className="space-y-4 mt-8">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
+                    3
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-lg">
+                      Apply to Services, Packages & Programmes
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select which services, packages, or programmes this
+                      promotion can be applied to. Leave empty to apply to all.
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="serviceIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Services (Optional)</FormLabel>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-auto py-1 px-2"
+                            onClick={() => {
+                              const currentSelection = field.value || [];
+                              if (currentSelection.length === services.length) {
+                                field.onChange([]);
+                              } else {
+                                field.onChange(services.map((s) => s.id));
+                              }
+                            }}
+                          >
+                            {(field.value || []).length === services.length &&
+                            services.length > 0
+                              ? "Clear All"
+                              : "Select All"}
+                          </Button>
+                        </div>
+                        <FormControl>
+                          <MultiSelect
+                            items={services}
+                            selectedIds={field.value || []}
+                            onSelectionChange={field.onChange}
+                            placeholder="Select services..."
+                            searchPlaceholder="Search services..."
+                            emptyMessage="No services available"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="packageIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Packages (Optional)</FormLabel>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-auto py-1 px-2"
+                            onClick={() => {
+                              const currentSelection = field.value || [];
+                              if (currentSelection.length === packages.length) {
+                                field.onChange([]);
+                              } else {
+                                field.onChange(packages.map((p) => p.id));
+                              }
+                            }}
+                          >
+                            {(field.value || []).length === packages.length &&
+                            packages.length > 0
+                              ? "Clear All"
+                              : "Select All"}
+                          </Button>
+                        </div>
+                        <FormControl>
+                          <MultiSelect
+                            items={packages}
+                            selectedIds={field.value || []}
+                            onSelectionChange={field.onChange}
+                            placeholder="Select packages..."
+                            searchPlaceholder="Search packages..."
+                            emptyMessage="No packages available"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="programmeIds"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Programmes (Optional)</FormLabel>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-auto py-1 px-2"
+                            onClick={() => {
+                              const currentSelection = field.value || [];
+                              if (
+                                currentSelection.length === programmes.length
+                              ) {
+                                field.onChange([]);
+                              } else {
+                                field.onChange(programmes.map((pr) => pr.id));
+                              }
+                            }}
+                          >
+                            {(field.value || []).length === programmes.length &&
+                            programmes.length > 0
+                              ? "Clear All"
+                              : "Select All"}
+                          </Button>
+                        </div>
+                        <FormControl>
+                          <MultiSelect
+                            items={programmes}
+                            selectedIds={field.value || []}
+                            onSelectionChange={field.onChange}
+                            placeholder="Select programmes..."
+                            searchPlaceholder="Search programmes..."
+                            emptyMessage="No programmes available"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="activeDays"
-                  key={`activeDays-${selectedPromotion?.id || "new"}`}
-                  render={({ field }) => {
-                    // Watch for changes to ensure re-render
-                    const watchedActiveDays = form.watch("activeDays");
-                    return (
-                      <FormItem>
-                        <FormLabel>Active Days & Times</FormLabel>
-                        <p className="text-xs text-muted-foreground">
-                          Select which days (booking day) the promotion is
-                          active. For each day, choose "All Day" or set specific
-                          times.
-                        </p>
-                        <FormControl>
-                          <div className="space-y-4">
-                            {[
-                              { value: "mon", label: "Monday" },
-                              { value: "tue", label: "Tuesday" },
-                              { value: "wed", label: "Wednesday" },
-                              { value: "thu", label: "Thursday" },
-                              { value: "fri", label: "Friday" },
-                              { value: "sat", label: "Saturday" },
-                              { value: "sun", label: "Sunday" },
-                            ].map((dayOption) => {
-                              const dayData = (watchedActiveDays || [])?.find(
-                                (d: ActiveDayWithTime) =>
-                                  d.day === dayOption.value,
-                              ) as ActiveDayWithTime | undefined;
-                              const isActive = !!dayData;
-
-                              return (
-                                <div
-                                  key={dayOption.value}
-                                  className="border rounded-lg p-3 hover:bg-gray-100 transition-colors"
-                                >
-                                  <div className="flex items-center justify-between mb-3">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                      <Checkbox
-                                        checked={isActive}
-                                        onCheckedChange={(checked) => {
-                                          if (checked) {
-                                            field.onChange([
-                                              ...(field.value || []),
-                                              {
-                                                day: dayOption.value,
-                                                allDay: true,
-                                              },
-                                            ]);
-                                          } else {
-                                            field.onChange(
-                                              (field.value || []).filter(
-                                                (d: ActiveDayWithTime) =>
-                                                  d.day !== dayOption.value,
-                                              ),
-                                            );
-                                          }
-                                        }}
-                                      />
-                                      <span className="font-medium text-sm">
-                                        {dayOption.label}
-                                      </span>
-                                    </label>
-                                  </div>
-
-                                  {isActive && (
-                                    <div className="ml-6 space-y-3 bg-white p-3 rounded-md border border-gray-200">
-                                      <div className="flex items-center gap-2">
-                                        <Checkbox
-                                          checked={dayData?.allDay || false}
-                                          onCheckedChange={(checked) => {
-                                            const updatedDays = (
-                                              field.value || []
-                                            ).map((d: ActiveDayWithTime) =>
-                                              d.day === dayOption.value
-                                                ? {
-                                                    ...d,
-                                                    allDay: !!checked,
-                                                  }
-                                                : d,
-                                            );
-                                            field.onChange(updatedDays);
-                                          }}
-                                        />
-                                        <Label className="text-xs font-medium cursor-pointer">
-                                          All Day
-                                        </Label>
-                                      </div>
-
-                                      {!dayData?.allDay && (
-                                        <div className="grid grid-cols-2 gap-2">
-                                          <div>
-                                            <Label className="text-xs text-muted-foreground mb-1 block">
-                                              Start Time
-                                            </Label>
-                                            <Input
-                                              type="time"
-                                              value={dayData?.startTime || ""}
-                                              onChange={(e) => {
-                                                const updatedDays = (
-                                                  field.value || []
-                                                ).map((d: ActiveDayWithTime) =>
-                                                  d.day === dayOption.value
-                                                    ? {
-                                                        ...d,
-                                                        startTime:
-                                                          e.target.value,
-                                                      }
-                                                    : d,
-                                                );
-                                                field.onChange(updatedDays);
-                                              }}
-                                              className="bg-white h-8 text-sm"
-                                            />
-                                          </div>
-                                          <div>
-                                            <Label className="text-xs text-muted-foreground mb-1 block">
-                                              End Time
-                                            </Label>
-                                            <Input
-                                              type="time"
-                                              value={dayData?.endTime || ""}
-                                              onChange={(e) => {
-                                                const updatedDays = (
-                                                  field.value || []
-                                                ).map((d: ActiveDayWithTime) =>
-                                                  d.day === dayOption.value
-                                                    ? {
-                                                        ...d,
-                                                        endTime: e.target.value,
-                                                      }
-                                                    : d,
-                                                );
-                                                field.onChange(updatedDays);
-                                              }}
-                                              className="bg-white h-8 text-sm"
-                                            />
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </FormControl>
-
-                        <FormMessage />
-                      </FormItem>
-                    );
-                  }}
-                />
               </div>
-            </div>
 
-            {/* Section 3: Apply to Services, Packages & Programmes */}
-            <div className="space-y-4 mt-8">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
-                  3
-                </div>
-                <div>
-                  <h3 className="font-semibold text-lg">
-                    Apply to Services, Packages & Programmes
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Select which services, packages, or programmes this
-                    promotion can be applied to. Leave empty to apply to all.
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                <FormField
-                  control={form.control}
-                  name="serviceIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Services (Optional)</FormLabel>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-auto py-1 px-2"
-                          onClick={() => {
-                            const currentSelection = field.value || [];
-                            if (currentSelection.length === services.length) {
-                              field.onChange([]);
-                            } else {
-                              field.onChange(services.map((s) => s.id));
-                            }
-                          }}
-                        >
-                          {(field.value || []).length === services.length &&
-                          services.length > 0
-                            ? "Clear All"
-                            : "Select All"}
-                        </Button>
-                      </div>
-                      <FormControl>
-                        <MultiSelect
-                          items={services}
-                          selectedIds={field.value || []}
-                          onSelectionChange={field.onChange}
-                          placeholder="Select services..."
-                          searchPlaceholder="Search services..."
-                          emptyMessage="No services available"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="packageIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Packages (Optional)</FormLabel>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-auto py-1 px-2"
-                          onClick={() => {
-                            const currentSelection = field.value || [];
-                            if (currentSelection.length === packages.length) {
-                              field.onChange([]);
-                            } else {
-                              field.onChange(packages.map((p) => p.id));
-                            }
-                          }}
-                        >
-                          {(field.value || []).length === packages.length &&
-                          packages.length > 0
-                            ? "Clear All"
-                            : "Select All"}
-                        </Button>
-                      </div>
-                      <FormControl>
-                        <MultiSelect
-                          items={packages}
-                          selectedIds={field.value || []}
-                          onSelectionChange={field.onChange}
-                          placeholder="Select packages..."
-                          searchPlaceholder="Search packages..."
-                          emptyMessage="No packages available"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="programmeIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Programmes (Optional)</FormLabel>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-auto py-1 px-2"
-                          onClick={() => {
-                            const currentSelection = field.value || [];
-                            if (currentSelection.length === programmes.length) {
-                              field.onChange([]);
-                            } else {
-                              field.onChange(programmes.map((pr) => pr.id));
-                            }
-                          }}
-                        >
-                          {(field.value || []).length === programmes.length &&
-                          programmes.length > 0
-                            ? "Clear All"
-                            : "Select All"}
-                        </Button>
-                      </div>
-                      <FormControl>
-                        <MultiSelect
-                          items={programmes}
-                          selectedIds={field.value || []}
-                          onSelectionChange={field.onChange}
-                          placeholder="Select programmes..."
-                          searchPlaceholder="Search programmes..."
-                          emptyMessage="No programmes available"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="flex gap-3 justify-end border-t pt-4 mt-8">
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isLoadingPromotion}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="bg-primary hover:bg-primary/90"
-                disabled={isSubmitting || isLoadingPromotion}
-              >
-                {isLoadingPromotion
-                  ? "Loading..."
-                  : isSubmitting
-                    ? selectedPromotion
-                      ? "Updating..."
-                      : "Creating..."
-                    : selectedPromotion
-                      ? "Update Promotion"
-                      : "Create Promotion"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+              <DialogFooter className="flex gap-3 justify-end border-t pt-4 mt-8">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={isLoadingPromotion}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-primary hover:bg-primary/90"
+                  disabled={isSubmitting || isLoadingPromotion}
+                >
+                  {isLoadingPromotion
+                    ? "Loading..."
+                    : isSubmitting
+                      ? selectedPromotion
+                        ? "Updating..."
+                        : "Creating..."
+                      : selectedPromotion
+                        ? "Update Offer"
+                        : "Create Offer"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         )}
       </DialogContent>
     </Dialog>

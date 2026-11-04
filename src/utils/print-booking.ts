@@ -9,7 +9,7 @@ export interface PrintBookingData {
   customerEmail?: string;
   customerPhone?: string;
   guestCount: number;
-  services: { name: string; price: string }[];
+  services: { name: string; price: string, quantity: number }[];
   subtotalAmount?: string;
   totalAmount: string;
   discountAmount?: string;
@@ -36,7 +36,7 @@ export function generatePrintBookingHTML(data: PrintBookingData): string {
     .map(
       (s, i) => `<tr>
         <td style="padding:8px 0;${i < lastIdx ? "border-bottom:1px solid #e5e7eb;" : ""}color:#374151;">${s.name}</td>
-        <td style="padding:8px 0;${i < lastIdx ? "border-bottom:1px solid #e5e7eb;" : ""}color:#374151;text-align:right;white-space:nowrap;">${s.price} ${data.currency}</td>
+        <td style="padding:8px 0;${i < lastIdx ? "border-bottom:1px solid #e5e7eb;" : ""}color:#374151;text-align:right;white-space:nowrap;">${s.quantity} x ${s.price} ${data.currency}</td>
       </tr>`,
     )
     .join("");

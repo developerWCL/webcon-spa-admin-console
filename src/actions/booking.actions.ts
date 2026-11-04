@@ -125,12 +125,14 @@ export async function getBookingById(
       date: result.bookingTime
         ? new Date(result.bookingTime).toISOString().split("T")[0]
         : "",
-      customer: {
-        firstName: result.customer?.firstName || "Guest",
-        lastName: result.customer?.lastName || "",
-        email: result.customer?.email || "",
-        phone: result.customer?.phone || "",
-      },
+      customer: result.customer
+        ? {
+            firstName: result.customer?.firstName || "Guest",
+            lastName: result.customer?.lastName || "",
+            email: result.customer?.email || "",
+            phone: result.customer?.phone || "",
+          }
+        : null,
       branch: {
         id: result.branch?.id || "",
         name: result.branch?.name || "",

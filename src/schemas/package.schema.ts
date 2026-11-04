@@ -47,13 +47,21 @@ export const CreatePackageSchema = BasePackageSchema.refine(
     message: "Package must have at least 1 sub-service",
     path: ["subServiceIds"],
   },
-).refine(
-  (data) => data.subServiceIds.length + data.newSubServices.length <= 10,
-  {
-    message: "Package can have at most 10 sub-services",
-    path: ["subServiceIds"],
-  },
-);
+).superRefine((data, ctx) => {
+  if (data.newSubServices.length > 0) {
+    data.newSubServices.forEach((subService, index) => {
+      // Check if price is missing or just empty whitespace
+      if (!subService.price || subService.price.trim() === "") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Price is required when creating new sub-services",
+          // This dynamically points to newSubServices[index].price
+          path: ["newSubServices", index, "price"],
+        });
+      }
+    });
+  }
+});
 
 export const UpdatePackageSchema = BasePackageSchema.partial().refine(
   (data) => {

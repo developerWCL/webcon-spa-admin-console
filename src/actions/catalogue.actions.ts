@@ -56,10 +56,10 @@ export async function getCatalogueItems(
 
     const items = (result.data || result || []).map((item: any) => ({
       id: item.id,
-      serviceId: item.service.id || item.id, // For sub-services, use serviceId
+      serviceId: item?.service?.id || item.id, // For sub-services, use serviceId
       name: item.name,
       duration: item.durationMinutes || undefined,
-      service: item.service ? { name: item.service.name } : undefined, // For sub-services
+      service: item?.service ? { name: item.service.name } : undefined, // For sub-services
       price: item.price || 0, // Include price for total calculation
       onlyPackage: item.onlyPackage || undefined,
     }));

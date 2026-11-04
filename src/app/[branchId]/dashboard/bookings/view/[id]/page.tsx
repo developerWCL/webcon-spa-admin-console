@@ -131,6 +131,7 @@ export default function ViewBookingPage() {
     const services = (bookingData.bookingItems || []).map((item) => ({
       name: item.name || item.service || "Unknown Service",
       price: formatNumberWithComma(Number(item.price || 0)), // Using duration as fallback, adjust if you have actual price
+      quantity: item.numberOfGuests || 0,
     }));
 
     const guestCount =
@@ -170,7 +171,7 @@ export default function ViewBookingPage() {
           ? formatNumberWithComma(appliedDiscount)
           : undefined,
       currency: "฿",
-      specialRequest: bookingData.customer.specialRequests,
+      specialRequest: bookingData?.customer?.specialRequests,
       promotionName: bookingData.appliedPromotion?.code,
       promotionCode: bookingData.appliedPromotion?.code,
       paymentMethod: bookingData.payments?.[0]?.method || "Not specified",
@@ -221,11 +222,11 @@ export default function ViewBookingPage() {
                 </h1>
                 <p className="text-muted-foreground mt-1">
                   <span>{bookingData.bookingId}</span>
-                  {bookingData.customer.firstName && (
+                  {bookingData?.customer?.firstName && (
                     <>
                       {" • "}
-                      {bookingData.customer.firstName}{" "}
-                      {bookingData.customer.lastName}
+                      {bookingData?.customer?.firstName}{" "}
+                      {bookingData?.customer?.lastName}
                     </>
                   )}
                 </p>
@@ -338,7 +339,8 @@ export default function ViewBookingPage() {
               </div>
 
               {/* Customer Information */}
-              <div className="border rounded-lg p-6">
+              { bookingData?.customer &&
+              (<div className="border rounded-lg p-6">
                 <h2 className="text-lg font-semibold mb-4">
                   Customer Information
                 </h2>
@@ -346,40 +348,41 @@ export default function ViewBookingPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">First Name</p>
                     <p className="font-medium">
-                      {bookingData.customer.firstName || "-"}
+                      {bookingData?.customer?.firstName || "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Last Name</p>
                     <p className="font-medium">
-                      {bookingData.customer.lastName || "-"}
+                      {bookingData?.customer?.lastName || "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Email</p>
                     <p className="font-medium">
-                      {bookingData.customer.email || "-"}
+                      {bookingData?.customer?.email || "-"}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Phone</p>
                     <p className="font-medium">
-                      {bookingData.customer.phone || "-"}
+                      {bookingData?.customer?.phone || "-"}
                     </p>
                   </div>
                 </div>
 
-                {bookingData.customer.specialRequests && (
+                {bookingData?.customer?.specialRequests && (
                   <div className="mt-4 pt-4 border-t">
                     <p className="text-sm text-muted-foreground">
                       Special Requests
                     </p>
                     <p className="font-medium">
-                      {bookingData.customer.specialRequests}
+                      {bookingData?.customer?.specialRequests}
                     </p>
                   </div>
                 )}
-              </div>
+              </div>)}
+              
             </div>
 
             {/* Sidebar */}

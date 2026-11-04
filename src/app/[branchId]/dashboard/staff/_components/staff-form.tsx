@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,9 @@ import {
 } from "@/components/ui/select";
 
 import { staffFormSchema, type StaffFormData } from "@/schemas/staff.schema";
-import { CreateStaffRequest, Role, Staff } from "@/types";
+import { Branch, CreateStaffRequest, Role, Staff } from "@/types";
+import { getBranches } from "@/actions/branch.actions";
+import { useSession } from "next-auth/react";
 
 interface StaffFormProps {
   isOpen: boolean;
@@ -49,7 +51,11 @@ export function StaffForm({
   initialData,
 }: StaffFormProps) {
   const isEditMode = !!initialData;
-
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const {data: session} = useSession();
+    const branchIds = useMemo(() =>{
+    return session?.branchIds || [];
+  }, [session?.branchIds]);
   const {
     register,
     handleSubmit,
@@ -58,6 +64,7 @@ export function StaffForm({
     control,
     watch,
     setError,
+    setValue,
   } = useForm<StaffFormData>({
     resolver: zodResolver(staffFormSchema),
     defaultValues: isEditMode
@@ -110,6 +117,23 @@ export function StaffForm({
     }
   }, [initialData, isEditMode, reset]);
 
+    useEffect(() => {
+      if (session?.spaIds?.[0]) {
+        loadData();
+      }
+    }, [session?.spaIds?.[0]]);
+  
+    async function loadData() {
+      const [branchesRes] = await Promise.all([
+        getBranches(),
+      ]);
+      setBranches(branchesRes.data || []);
+    }
+
+  const branchAvailable = useMemo(() => {
+    return branches.filter(branch => branchIds.includes(branch.id));
+  }, [branches, branchIds]);
+
   const onSubmitForm = async (data: StaffFormData) => {
     // Validate password is required for create mode
     if (!isEditMode && !data.password) {
@@ -130,6 +154,7 @@ export function StaffForm({
           phone: data.phone,
           specialties: data.specialties,
           workingHours: data.workingHours,
+          branchIds: data.branchIds || [],
           roleId: data.role,
           ...(data.password && { password: data.password }),
         });
@@ -144,7 +169,7 @@ export function StaffForm({
           roleIds: [data.role],
           specialties: data.specialties,
           workingHours: data.workingHours,
-          branchIds: branchId ? [branchId] : [],
+          branchIds: data.branchIds,
           isActive: true,
         });
       }
@@ -284,6 +309,41 @@ export function StaffForm({
                 )}
               </div>
             </div>
+             {branchAvailable.length > 0 && (
+              <div className="space-y-2">
+                <Label>Assign to Branches</Label>
+                <div className="space-y-2 max-h-40 overflow-y-auto border rounded-lg p-3">
+                  {branchAvailable.map((branch) => (
+                    <div
+                      key={branch.id}
+                      className="flex items-center gap-2"
+                    >
+                      <Checkbox
+                        id={`branch-${branch.id}`}
+                        checked={watch("branchIds")?.includes(branch.id)}
+                        onCheckedChange={() => {
+                          const currentBranchIds = watch("branchIds") || [];
+                          if (currentBranchIds.includes(branch.id)) {
+                            setValue(
+                              "branchIds",
+                              currentBranchIds.filter((id) => id !== branch.id)
+                            );
+                          } else {
+                            setValue("branchIds", [...currentBranchIds, branch.id]);
+                          }
+                        }}
+                      />
+                      <Label
+                        htmlFor={`branch-${branch.id}`}
+                        className="font-normal cursor-pointer"
+                      >
+                        {branch.name}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="phone">{"Phone"}</Label>
               <Input

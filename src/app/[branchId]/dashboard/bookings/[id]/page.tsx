@@ -281,7 +281,7 @@ export default function EditBookingPage() {
           const updateData = {
             status: data.status,
             totalPrice: data.totalPrice,
-            notes: data.customer.specialRequests,
+            notes: data?.customer?.specialRequests || "",
             discountAmount: pageState.appliedDiscount,
             appliedPromotion: pageState.appliedCoupon,
             payments: pageState.payments,

@@ -27,6 +27,8 @@ interface PromotionData {
   discount: number;
   type: "percentage" | "fixed";
   dayActivated?: "booking_day" | "service_day";
+  guestType?: "all_guests" | "authenticated_only";
+  maxUsedPerAccount?: number;
   activeDays?: string[];
   minPurchaseAmount?: number | string;
   maxUsed?: number;
@@ -138,7 +140,10 @@ export const useBookingPage = (options: UseBookingPageOptions) => {
                   ? new Date(promo.endDate).setHours(23, 59, 59, 999)
                   : null;
                 return (
-                  promo.status === "active" && end && end > new Date().getTime()
+                   promo.status === "active" &&
+                  end &&
+                  end > new Date().getTime() &&
+                  promo.guestType === "all_guests"
                 );
               })
               .map((promo: any) => ({
@@ -156,6 +161,8 @@ export const useBookingPage = (options: UseBookingPageOptions) => {
                 services: promo.services || [],
                 packages: promo.packages || [],
                 programmes: promo.programmes || [],
+                guestType: promo.guestType || "all_guests",
+                maxUsedPerAccount: promo.maxUsedPerAccount || 0,
               }))
           : [];
         setPromotions(transformedPromotions);

@@ -34,6 +34,8 @@ export interface Promotion {
   status: "active" | "inactive";
   used: number;
   maxUsed: number;
+  maxUsedPerAccount?: number;
+  guestType?: "all_guests" | "authenticated_only";
   media?: Array<{
     id: string;
     url: string;

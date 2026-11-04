@@ -11,7 +11,7 @@ export const PromotionActiveDay = z.enum([
   "sat",
 ]);
 export const EntityStatus = z.enum(["active", "inactive"]);
-
+export const PromotionGuestType = z.enum(["all_guests", "authenticated_only"]);
 export const ActiveDayWithTimeSchema = z.object({
   day: PromotionActiveDay,
   allDay: z.boolean().default(true),
@@ -49,6 +49,12 @@ export const PromotionSchema = z.object({
   endDate: z.string().min(1, "End date is required"),
   minPurchaseAmount: z.string().min(1, "Minimum purchase amount is required"),
   maxUsed: z.number().int().min(0, "Maximum usage must be at least 0"),
+  maxUsedPerAccount: z
+    .number()
+    .int()
+    .min(0, "Maximum usage per account must be at least 0")
+    .optional(),
+  guestType: PromotionGuestType.optional(),
   activeDays: ActiveDaysSchema,
   branchId: z.string().optional(),
   status: EntityStatus.optional(),

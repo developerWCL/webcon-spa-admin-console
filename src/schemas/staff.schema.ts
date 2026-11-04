@@ -36,6 +36,7 @@ export const staffFormSchema = z.object({
     ),
   specialties: z.string().optional(),
   workingHours: z.string().optional(),
+  branchIds: z.array(z.string()).optional(),
 });
 
 export type StaffFormData = z.infer<typeof staffFormSchema>;

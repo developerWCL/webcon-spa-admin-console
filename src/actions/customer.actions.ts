@@ -22,6 +22,9 @@ export interface Spa {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  nationality: string | null;
+  gender: string;
+  dateOfBirth: string | null;
 }
 
 export interface GuestCustomer {
@@ -67,16 +70,23 @@ export interface AppUser {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  nationality: string | null;
+  gender: string;
+  dateOfBirth: string | null;
 }
 
 export interface CustomerListResponse {
   success: boolean;
   data?: Guest[];
   meta?: {
+    totalItems?: number;
+    itemCount?: number;
+    itemsPerPage?: number;
+    totalPages?: number;
+    currentPage?: number;
     page?: number;
     limit?: number;
     total?: number;
-    totalPages?: number;
   };
   error?: string;
 }
@@ -85,10 +95,14 @@ export interface AppUserListResponse {
   success: boolean;
   data?: AppUser[];
   meta?: {
+    totalItems?: number;
+    itemCount?: number;
+    itemsPerPage?: number;
+    totalPages?: number;
+    currentPage?: number;
     page?: number;
     limit?: number;
     total?: number;
-    totalPages?: number;
   };
   error?: string;
 }
@@ -261,7 +275,6 @@ export async function createCustomer(
       specialRequest: customerData.specialRequest || null,
       nationality: customerData.nationality || null,
       gender: customerData.gender,
-      spaId: session.spaIds?.[0] || "",
     };
 
     const response = await fetch(`${API_BASE_URL}/guests`, {
@@ -323,7 +336,6 @@ export async function updateCustomer(
       credentials: "include",
       body: JSON.stringify({
         ...customerData,
-        spaId: session.spaIds?.[0] || "",
       }),
       cache: "no-store",
     });
@@ -350,6 +362,67 @@ export async function updateCustomer(
     return { success: false, error: errorMessage };
   }
 }
+
+export async function updateAppUser(
+  customerId: string,
+  branchId: string,
+  customerData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    isVerified?: boolean;
+    loyaltyPoints?: number;
+    dateOfBirth?: string | null;
+    gender?: string | null;
+    nationality?: string | null;
+  },
+): Promise<{ success: boolean; data?: AppUser; error?: string }> {
+  try {
+    const session = await auth();
+
+    if (!session?.accessToken) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/admin/customers/${customerId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
+        branchId: branchId,
+        "spa-id": session.spaIds?.[0] || "",
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        ...customerData,
+        }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error:
+          error.message || `Failed to update customer: ${response.statusText}`,
+      };
+    }
+
+    const responseData = await response.json();
+
+    revalidatePath(`/[branchId]/dashboard/customers`);
+
+    return { success: true, data: responseData };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to update customer";
+    console.error("Error updating customer:", error);
+    return { success: false, error: errorMessage };
+  }
+}
+
+
 
 export async function deleteCustomer(
   customerId: string,

@@ -217,7 +217,9 @@ export const UpdateBranchDialog = ({
             }
 
             const arrayBuffer = await blob.arrayBuffer();
-            await uploadImageToS3(uploadUrl.url, arrayBuffer, "image/jpeg");
+            const uint8Array = new Uint8Array(arrayBuffer);
+            const fileArray = Array.from(uint8Array);
+            await uploadImageToS3(uploadUrl.url, fileArray, "image/jpeg");
             mediaIds.push(uploadUrl.mediaId);
           }
         } catch (error) {

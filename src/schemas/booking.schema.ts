@@ -43,7 +43,7 @@ export const customerSchema = z.object({
   email: z.string().optional(),
   phone: z.string().optional(),
   specialRequests: z.string().optional(),
-});
+}).nullable();
 
 export const bookingItemsSchema = z.object({
   id: z.string().optional(),

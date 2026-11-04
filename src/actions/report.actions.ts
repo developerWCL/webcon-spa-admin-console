@@ -27,6 +27,7 @@ export interface BookingReportItem {
   bookingStatus: string;
   paymentStatus: string;
   bookingDate: string;
+  promotionCode?: string;
 }
 
 export interface TopServiceItem {

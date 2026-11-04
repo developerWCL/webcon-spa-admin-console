@@ -62,6 +62,7 @@ import {
   List,
   FilterX,
   Printer,
+  CalendarCheck,
 } from "lucide-react";
 import { Pagination, PaginationMeta } from "@/components/pagination";
 import { GetBookingsResponse } from "@/types/api/booking";
@@ -125,7 +126,7 @@ export default function BookingsPage() {
   const [bookingToUpdate, setBookingToUpdate] =
     useState<GetBookingsResponse | null>(null);
   const [updateAction, setUpdateAction] = useState<
-    "complete" | "cancel" | null
+    "complete" | "cancel" | "confirm" | null
   >(null);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -196,7 +197,12 @@ export default function BookingsPage() {
 
     try {
       setIsUpdating(true);
-      const newStatus = updateAction === "complete" ? "completed" : "cancelled";
+       const newStatus =
+        updateAction === "complete"
+          ? "completed"
+          : updateAction === "confirm"
+            ? "confirmed"
+            : "cancelled";
 
       const response = await updateBooking(bookingToUpdate.id, {
         status: newStatus,
@@ -234,7 +240,7 @@ export default function BookingsPage() {
 
   const handleOpenConfirmDialog = (
     booking: GetBookingsResponse,
-    action: "complete" | "cancel",
+    action: "complete" | "cancel" | "confirm",
   ) => {
     setBookingToUpdate(booking);
     setUpdateAction(action);
@@ -263,25 +269,21 @@ export default function BookingsPage() {
             ? item.package?.name
             : item.programme?.name) || "Unknown Service",
       price: formatNumberWithComma(Number(item.price || 0)),
+      quantity: item.quantity || 0,
     }));
 
     // Calculate guest count from all items
     const guestCount =
       booking.items.reduce(
-        (sum, item) => sum + (item.guests?.length || 0),
+        (sum, item) => sum + (item.quantity || 0),
         0,
       ) || 1;
 
-    // Calculate subtotal from all items
-    const subtotalAmount = booking.items.reduce(
-      (sum, item) => sum + Number(item.subtotal || 0),
-      0,
-    );
+    const subtotalAmount = Number(booking.amount || 0);
 
     // Calculate discount
     const totalAmount = Number(booking.totalAmount || 0);
-    const discountAmount = Math.max(0, subtotalAmount - totalAmount);
-
+    const discountAmount = Number(booking.discountAmount || 0);
     // Get special request from first guest
     const specialRequest =
       booking.items
@@ -302,8 +304,7 @@ export default function BookingsPage() {
         : booking?.items?.[0]?.guests?.[0]?.phone,
       guestCount,
       services,
-      subtotalAmount:
-        subtotalAmount > 0 ? formatNumberWithComma(subtotalAmount) : undefined,
+            subtotalAmount: formatNumberWithComma(Number(booking.amount)),
       totalAmount: formatNumberWithComma(totalAmount),
       discountAmount:
         discountAmount > 0 ? formatNumberWithComma(discountAmount) : undefined,
@@ -759,6 +760,18 @@ export default function BookingsPage() {
                                         {"Edit Booking"}
                                       </DropdownMenuItem>
                                     </Link>
+                                     <DropdownMenuItem
+                                      onClick={() => {
+                                        setDropdownOpen(null);
+                                        handleOpenConfirmDialog(
+                                          booking,
+                                          "confirm",
+                                        );
+                                      }}
+                                    >
+                                      <CalendarCheck className="w-4 h-4 mr-2" />
+                                      {"Mark as Confirmed"}
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => {
                                         setDropdownOpen(null);
@@ -1234,11 +1247,15 @@ export default function BookingsPage() {
             <DialogTitle>
               {updateAction === "complete"
                 ? "Mark Booking as Completed?"
+                : updateAction === "confirm"
+                ? "Confirm Booking?"
                 : "Cancel Booking?"}
             </DialogTitle>
             <DialogDescription>
               {updateAction === "complete"
                 ? `Are you sure you want to mark booking ${bookingToUpdate?.bookingId} as completed? This action cannot be undone.`
+                : updateAction === "confirm"
+                ? `Are you sure you want to confirm booking ${bookingToUpdate?.bookingId}? This action cannot be undone.`
                 : `Are you sure you want to cancel booking ${bookingToUpdate?.bookingId}? This action cannot be undone.`}
             </DialogDescription>
           </DialogHeader>
@@ -1251,7 +1268,10 @@ export default function BookingsPage() {
               {"Cancel"}
             </Button>
             <Button
-              variant={updateAction === "cancel" ? "destructive" : "default"}
+              variant={updateAction === "cancel" ? "destructive" :
+                updateAction === "confirm"
+                ? "default"
+                : "default"}
               onClick={handleStatusUpdate}
               disabled={isUpdating}
             >
@@ -1259,7 +1279,9 @@ export default function BookingsPage() {
                 ? "Updating..."
                 : updateAction === "complete"
                   ? "Mark as Completed"
-                  : "Cancel Booking"}
+                  : updateAction === "confirm"
+                    ? "Confirm Booking"
+                    : "Cancel Booking"}
             </Button>
           </DialogFooter>
         </DialogContent>

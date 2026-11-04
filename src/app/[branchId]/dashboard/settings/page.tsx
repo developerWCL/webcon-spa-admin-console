@@ -27,6 +27,10 @@ import { Switch } from "@/components/ui/switch";
 import PaypalIntegration from "./_components/PaypalIntegration";
 import { getBranchById, updateBranch } from "@/actions/branch.actions";
 import { toast } from "sonner";
+import { generateMediaUploadUrls, uploadImageToS3 } from "@/actions/media.actions";
+import Image from "next/image";
+import { Upload, X } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 // Validation Schemas
 const businessInfoSchema = z.object({
@@ -108,7 +112,12 @@ export default function SettingsPage() {
   const branchId = params?.branchId as string;
   const [submitMessage, setSubmitMessage] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
-
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [existingMedia, setExistingMedia] = useState<any[]>([]);
+  const [removedMediaIds, setRemovedMediaIds] = useState<string[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const {data: session} = useSession();
+  
   const businessForm = useForm<BusinessInfoFormData>({
     resolver: zodResolver(businessInfoSchema),
     defaultValues: {
@@ -132,9 +141,7 @@ export default function SettingsPage() {
       sunday: { start: "09:00", end: "20:00", enabled: false },
     },
   });
-
-  useEffect(() => {
-    async function loadBranchData() {
+async function loadBranchData() {
       if (!branchId) return;
 
       setIsLoading(true);
@@ -204,22 +211,79 @@ export default function SettingsPage() {
         setIsLoading(false);
       }
     }
+  useEffect(() => {
+    
 
     loadBranchData();
   }, [branchId, businessForm, hoursForm]);
 
   const onBusinessSubmit = async (data: BusinessInfoFormData) => {
     try {
+      setIsUploadingImage(true);
+      // Prepare media IDs (keep existing ones and remove deleted ones)
+      let mediaIds: string[] = [];
+
+      // Keep existing media IDs (excluding removed ones)
+      if (existingMedia.length > 0) {
+        mediaIds = existingMedia
+          .filter((m) => !removedMediaIds.includes(m.id))
+          .map((m) => m.id);
+      }
+
+      // Upload new image if selected
+      if (selectedFile) {
+        try {
+          // Generate upload URL
+          const uploadUrls = await generateMediaUploadUrls([
+            {
+              filename: selectedFile.name,
+              mimeType: selectedFile.type,
+              size: selectedFile.size,
+            },
+          ]);
+
+          if (!uploadUrls || !Array.isArray(uploadUrls) || uploadUrls.length === 0) {
+            toast.error("Failed to generate upload URL");
+            return;
+          }
+
+          const uploadUrl = uploadUrls[0];
+
+          if (!uploadUrl || !uploadUrl.url || !uploadUrl.mediaId) {
+            toast.error("Invalid upload URL received");
+            return;
+          }
+
+          // Convert file to array buffer
+          const arrayBuffer = await selectedFile.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const fileArray = Array.from(uint8Array);
+
+          // Upload to S3
+          await uploadImageToS3(uploadUrl.url, fileArray, selectedFile.type);
+          mediaIds.push(uploadUrl.mediaId);
+          setSelectedFile(null);
+          await loadBranchData();
+          setExistingMedia((prev) => [{ id: uploadUrl.mediaId, url: URL.createObjectURL(selectedFile) }]);
+        } catch (error) {
+          console.error("Error uploading image:", error);
+          toast.error(error instanceof Error ? error.message : "Error uploading image");
+          throw error;
+        }
+      }
+
       const result = await updateBranch(branchId, {
         name: data.businessName,
         phone: data.phone,
         email: data.email,
         location: data.address,
         website: data.website,
+        mediaIds: mediaIds,
       });
 
       if (result.success) {
         setSubmitMessage("Business information saved successfully!");
+        setRemovedMediaIds([]);
         toast.success("Business information saved successfully!");
       } else {
         setSubmitMessage(result.error || "Error saving business information");
@@ -229,6 +293,32 @@ export default function SettingsPage() {
       setSubmitMessage("Error saving business information");
       console.error("Error:", error);
       toast.error("Error saving business information");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Only take the first file
+    const file = files[0];
+    setSelectedFile(file);
+    toast.success("Image selected. Click 'Save Changes' to upload.");
+
+    // Reset file input
+    if (e.target) {
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveImage = (mediaId: string) => {
+    if (mediaId === "selected") {
+      setSelectedFile(null);
+    } else if (existingMedia.some((m) => m.id === mediaId)) {
+      setRemovedMediaIds((prev) => [...prev, mediaId]);
+      setExistingMedia((prev) => prev.filter((m) => m.id !== mediaId));
     }
   };
 
@@ -378,7 +468,83 @@ export default function SettingsPage() {
                 </p>
               )}
             </div>
+              <div className="space-y-2">
+              <Label>{"Business Images"}</Label>
+              <div className="flex flex-col gap-4">
+               
 
+                {/* Existing Media Display */}
+                {existingMedia.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {existingMedia.map((media) => (
+                      <div
+                        key={media.id}
+                        className="relative group rounded-lg overflow-hidden border border-input bg-muted aspect-square"
+                      >
+                        <Image
+                          src={media.url}
+                          alt="Branch image"
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(media.id)}
+                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ): (
+                  <>
+                  {!selectedFile && (<div className="relative">
+                  <Input
+                    id="imageUpload"
+                    type="file"
+                    accept="image/*"
+                    disabled={isLoading || isUploadingImage}
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="imageUpload"
+                    className="flex items-center justify-center gap-2 px-4 py-2 border border-input rounded-md bg-background cursor-pointer hover:bg-accent transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>{"Upload Image"}</span>
+                  </label>
+                </div>)}
+                  </>
+                )
+                }
+
+                {/* Selected Image Preview */}
+                {selectedFile && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <div className="relative group rounded-lg overflow-hidden border border-input bg-muted aspect-square">
+                      <Image
+                        src={URL.createObjectURL(selectedFile)}
+                        alt="Selected image preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-white text-xs font-medium text-center px-2 truncate">{selectedFile.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage("selected")}
+                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
             <Button
               type="submit"
               disabled={businessForm.formState.isSubmitting || isLoading}
@@ -428,6 +594,7 @@ export default function SettingsPage() {
                 />
               </div>
             ))}
+
             <Button
               type="submit"
               disabled={hoursForm.formState.isSubmitting || isLoading}
@@ -437,7 +604,9 @@ export default function SettingsPage() {
           </form>
         </CardContent>
       </Card>
-      <PaypalIntegration /> {/* PayPal Integration Component */}
+     {(session?.user?.email === "admin@spa.local" || session?.user?.email === "developer@webconnection.asia") && (
+        <PaypalIntegration/>
+      )}
     </div>
   );
 }

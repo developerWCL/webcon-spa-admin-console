@@ -43,23 +43,46 @@ export async function generateMediaUploadUrls(
 
 export async function uploadImageToS3(
   presignedUrl: string,
-  fileData: ArrayBuffer,
+  fileData: ArrayBuffer | number[],
   mimeType: string,
 ): Promise<void> {
   try {
+     // Convert to Uint8Array for proper fetch body handling
+    let uint8Array: Uint8Array;
+
+    if (fileData instanceof ArrayBuffer) {
+      uint8Array = new Uint8Array(fileData);
+    } else if (Array.isArray(fileData)) {
+      uint8Array = new Uint8Array(fileData);
+    } else {
+      throw new Error("Invalid file data format");
+    }
+
+    console.log(`[uploadImageToS3] Uploading ${uint8Array.length} bytes to S3`);
+
     const response = await fetch(presignedUrl, {
       method: "PUT",
       headers: {
         "Content-Type": mimeType,
+        "Content-Length": uint8Array.length.toString(),
       },
-      body: fileData,
+      body: uint8Array,
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to upload image to S3: ${response.statusText}`);
+      const errorText = await response.text().catch(() => "Unknown error");
+      console.error(
+        `[uploadImageToS3] S3 upload failed: ${response.status} ${response.statusText}`,
+        errorText,
+      );
+      throw new Error(
+        `S3 upload failed: ${response.status} ${response.statusText}`,
+      );
     }
+
+    console.log("[uploadImageToS3] Upload successful");
   } catch (error) {
-    console.error("Upload to S3 error:", error);
+    console.error("[uploadImageToS3] Error:", error);
     throw error;
   }
 }

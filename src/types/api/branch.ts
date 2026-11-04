@@ -19,4 +19,6 @@ export interface UpdateBranchRequest {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+    mediaIds?: string[];
+
 }

@@ -21,6 +21,7 @@ interface CouponValidationData {
   minPurchaseAmount?: number | string;
   maxUsed?: number;
   used?: number;
+    guestType?: "all_guests" | "authenticated_only";
 }
 
 interface ValidationResult {
@@ -332,6 +333,33 @@ export const validateCouponUsageLimit = (
 };
 
 /**
+ * Validates coupon guest type
+ * Only allows promotions with guestType = "all_guests"
+ *
+ * @param coupon - Coupon data with guestType
+ */
+export const validateCouponGuestType = (
+  coupon: CouponValidationData,
+): ValidationResult => {
+  console.log("coupon.guestType", coupon.guestType);
+
+  // If guestType is not specified, default to all_guests
+  if (!coupon.guestType) {
+    return { isValid: true };
+  }
+
+  // Only allow all_guests type
+  if (coupon.guestType !== "all_guests") {
+    return {
+      isValid: false,
+      error: `This promotion is only available to authenticated guests. Please prompt the user to log in to use this promotion.`,
+    };
+  }
+
+  return { isValid: true };
+};
+
+/**
  * Performs all coupon validations
  *
  * @param coupon - Complete coupon data
@@ -345,6 +373,11 @@ export const validateCoupon = (
   bookingDate?: Date,
   serviceDate?: Date,
 ): ValidationResult => {
+   const guestTypeValidation = validateCouponGuestType(coupon);
+  if (!guestTypeValidation.isValid) {
+    return guestTypeValidation;
+  }
+  
   // Validate day activation
   const dayValidation = validateCouponDay(
     coupon,

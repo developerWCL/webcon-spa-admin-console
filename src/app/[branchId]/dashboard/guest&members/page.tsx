@@ -1,5 +1,6 @@
 "use client";
 
+import * as XLSX from "xlsx";
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { useState, useEffect } from "react";
@@ -9,6 +10,7 @@ import {
   getAppUsers,
   createCustomer,
   updateCustomer,
+  updateAppUser,
   deleteCustomer,
   type Guest,
   type AppUser,
@@ -52,6 +54,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Search,
   Plus,
@@ -65,12 +73,16 @@ import {
   ChevronRight,
   OctagonAlert,
   FilterX,
+  Download,
+  CalendarIcon,
 } from "lucide-react";
 import {
   EditGuestDialog,
   EditGuestFormData,
 } from "@/components/dialogs/edit-guest-dialog";
 import { Pagination, PaginationMeta } from "@/components/pagination";
+import { Country, getCountries } from "@/actions/countries";
+import { format } from "date-fns";
 
 const genderConfig = {
   male: { label: "Male", color: "bg-blue-500" },
@@ -108,6 +120,22 @@ function getMembershipByBookings(
   return "bronze";
 }
 
+function formatDateValue(value?: string | null): string {
+  if (!value) return "Not provided";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString();
+}
+
+function getNationalityLabel(
+  countryCode?: string | null,
+  countries: Country[] = [],
+): string {
+  if (!countryCode) return "Not provided";
+  const matchedCountry = countries.find((country) => country.code === countryCode);
+  return matchedCountry?.title || countryCode;
+}
+
 export default function CustomersPage() {
   const params = useParams();
   const branchId = params.branchId as string;
@@ -137,6 +165,20 @@ export default function CustomersPage() {
   const [appUsersDropdownOpen, setAppUsersDropdownOpen] = useState<
     number | null
   >(null);
+  const [selectedAppUser, setSelectedAppUser] = useState<AppUser | null>(null);
+  const [isAppUserDetailsOpen, setIsAppUserDetailsOpen] = useState(false);
+  const [isAppUserEditOpen, setIsAppUserEditOpen] = useState(false);
+  const [appUserForm, setAppUserForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    isVerified: false,
+    loyaltyPoints: 0,
+    dateOfBirth: "",
+    gender: "male",
+    nationality: "",
+  });
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isOpeningDetails, setIsOpeningDetails] = useState(false);
@@ -144,7 +186,19 @@ export default function CustomersPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Guest | null>(null);
   const [activeTab, setActiveTab] = useState("guests");
+  const [countries, setCOUNTRIES] = useState<Country[]>([]);
 
+  useEffect(() => {
+    async function fetchCountries() {
+      try {
+        const countries = await getCountries();
+        setCOUNTRIES(countries);
+      } catch (error) {
+        console.error("Failed to fetch countries:", error);
+      }
+    }
+    fetchCountries();
+  }, []);
   // Fetch customers on component mount or when branchId changes
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -161,7 +215,9 @@ export default function CustomersPage() {
 
       if (result.success && result.data) {
         setCustomers(result.data);
-        result.meta && setPaginationMeta(result.meta || null);
+        if (result.meta) {
+          setPaginationMeta(result.meta as PaginationMeta);
+        }
       } else {
         setError(result.error || "Failed to load customers");
       }
@@ -190,7 +246,9 @@ export default function CustomersPage() {
 
       if (result.success && result.data) {
         setAppUsers(result.data);
-        result.meta && setAppUsersPageMeta(result.meta || null);
+        if (result.meta) {
+          setAppUsersPageMeta(result.meta as PaginationMeta);
+        }
       } else {
         setAppUsersError(result.error || "Failed to load app users");
       }
@@ -200,6 +258,24 @@ export default function CustomersPage() {
 
     fetchAppUsers();
   }, [branchId, activeTab, appUsersPage, itemsPerPage, appUsersSearchQuery]);
+
+  useEffect(() => {
+    if (selectedAppUser) {
+      setAppUserForm({
+        firstName: selectedAppUser.firstName || "",
+        lastName: selectedAppUser.lastName || "",
+        email: selectedAppUser.email || "",
+        phone: selectedAppUser.phone || "",
+        isVerified: selectedAppUser.isVerified || false,
+        loyaltyPoints: selectedAppUser.loyaltyPoints || 0,
+        dateOfBirth: selectedAppUser.dateOfBirth
+          ? new Date(selectedAppUser.dateOfBirth).toISOString().slice(0, 10)
+          : "",
+        gender: selectedAppUser.gender || "male",
+        nationality: selectedAppUser.nationality || "",
+      });
+    }
+  }, [selectedAppUser]);
 
   useEffect(() => {
     if (type === "new") {
@@ -254,6 +330,40 @@ export default function CustomersPage() {
     }
   };
 
+  const handleUpdateAppUser = async (
+    customerId: string,
+    customerData: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      isVerified?: boolean;
+      loyaltyPoints?: number;
+      dateOfBirth?: string | null;
+      gender?: string | null;
+      nationality?: string | null;
+    },
+  ) => {
+    setIsSubmitting(true);
+    try {
+      const result = await updateAppUser(customerId, branchId, customerData);
+      if (result.success && result.data) {
+        setAppUsers(
+          appUsers.map((user) =>
+            user.id === customerId ? (result.data as AppUser) : user,
+          ),
+        );
+        setSelectedAppUser(null);
+        setIsAppUserEditOpen(false);
+        setAppUsersError(null);
+      } else {
+        setAppUsersError(result.error || "Failed to update app user");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteCustomer = async (customerId: string) => {
     setIsSubmitting(true);
     try {
@@ -296,6 +406,59 @@ export default function CustomersPage() {
       initial: "B",
     },
   ];
+
+  const exportGuests = () => {
+    if (!filteredCustomers.length) {
+      setError("No guest data to export");
+      return;
+    }
+
+    const data = filteredCustomers.map((customer) => ({
+      "First Name": customer.firstName,
+      "Last Name": customer.lastName,
+      Email: customer.email,
+      Phone: customer.phone,
+      Gender: customer.gender,
+      Nationality: customer.nationality || "-",
+      "Membership Tier": getMembershipByBookings(
+        customer?.bookingItems?.length || 0,
+      ),
+      "Total Bookings": customer?.bookingItems?.length || 0,
+      "Created At": new Date(customer.createdAt).toLocaleDateString(),
+      "Special Request": customer.specialRequest || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Guests");
+    XLSX.writeFile(workbook, "guest-management.xlsx");
+  };
+
+  const exportAppUsers = () => {
+    if (!appUsers.length) {
+      setAppUsersError("No app users to export");
+      return;
+    }
+
+    const data = appUsers.map((user) => ({
+      "First Name": user.firstName,
+      "Last Name": user.lastName,
+      Email: user.email,
+      Phone: user.phone,
+      "Date of Birth": formatDateValue(user.dateOfBirth),
+      Gender: user.gender || "Not provided",
+      Nationality: getNationalityLabel(user.nationality, countries),
+      "Created At": new Date(user.createdAt).toLocaleDateString(),
+      "Is Verified": user.isVerified ? "Yes" : "No",
+      "Loyalty Points": user.loyaltyPoints,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "App Users");
+    XLSX.writeFile(workbook, "app-user-management.xlsx");
+  };
+
   return (
     <div className="space-y-6">
       {/* Error Alert */}
@@ -309,10 +472,10 @@ export default function CustomersPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            {"Guest And Customer Management"}
+            {"Guest And Member Management"}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {"Manage guest and customer profiles, memberships, and history"}
+            {"Manage guest and member profiles, memberships, and history"}
           </p>
         </div>
       </div>
@@ -321,7 +484,7 @@ export default function CustomersPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="guests">Guest Management</TabsTrigger>
-          <TabsTrigger value="appuser">App User</TabsTrigger>
+          <TabsTrigger value="appuser">Member Management</TabsTrigger>
         </TabsList>
 
         <TabsContent value="guests" className="space-y-4">
@@ -366,15 +529,25 @@ export default function CustomersPage() {
                     <FilterX className="w-4 h-4" />
                   </Button>
                 </div>
-                <Button
-                  onClick={() => {
-                    setSelectedCustomer(null);
-                    setIsEditDialogOpen(true);
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  {"Add Guest"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={exportGuests}
+                    disabled={isLoading || !filteredCustomers.length}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {"Export"}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    {"Add Guest"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -656,18 +829,28 @@ export default function CustomersPage() {
                     }}
                   />
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    // reset all filters and pagination
-                    setAppUsersSearchQuery("");
-                    setAppUsersPage(1);
-                    setItemsPerPage(10);
-                  }}
-                >
-                  <FilterX className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={exportAppUsers}
+                    disabled={appUsersLoading || !appUsers.length}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    {"Export"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      // reset all filters and pagination
+                      setAppUsersSearchQuery("");
+                      setAppUsersPage(1);
+                      setItemsPerPage(10);
+                    }}
+                  >
+                    <FilterX className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -696,6 +879,7 @@ export default function CustomersPage() {
                         <TableHead>Name</TableHead>
                         <TableHead>Contact</TableHead>
                         <TableHead>Join Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -704,16 +888,8 @@ export default function CustomersPage() {
                           <TableRow key={appUser.id}>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                {/* <Avatar className="w-10 h-10">
-                                  <AvatarFallback className="bg-primary/10 text-primary">
-                                    {`${appUser.firstName[0]}${appUser.lastName[0]}`}
-                                  </AvatarFallback>
-                                </Avatar> */}
                                 <div>
                                   <p className="font-medium capitalize">{`${appUser.firstName} ${appUser.lastName}`}</p>
-                                  {/* <p className="text-xs text-muted-foreground">
-                                    {appUser.id}
-                                  </p> */}
                                 </div>
                               </div>
                             </TableCell>
@@ -733,12 +909,6 @@ export default function CustomersPage() {
                                 </div>
                               </div>
                             </TableCell>
-
-                            {/* <TableCell>
-                              <span className="text-sm font-medium">
-                                {appUser.loyaltyPoints} pts
-                              </span>
-                            </TableCell> */}
                             <TableCell>
                               <span className="text-sm">
                                 {new Date(
@@ -746,7 +916,7 @@ export default function CustomersPage() {
                                 ).toLocaleDateString()}
                               </span>
                             </TableCell>
-                            {/* <TableCell className="text-right">
+                            <TableCell className="text-right">
                               <DropdownMenu
                                 open={appUsersDropdownOpen === index}
                                 onOpenChange={(open) => {
@@ -771,25 +941,27 @@ export default function CustomersPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => {
+                                      setSelectedAppUser(appUser);
                                       setAppUsersDropdownOpen(null);
+                                      setIsAppUserDetailsOpen(true);
                                     }}
                                   >
                                     <Eye className="w-4 h-4 mr-2" />
                                     View Details
                                   </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    className="text-destructive"
-                                    onSelect={() => {
+                                    onClick={() => {
+                                      setSelectedAppUser(appUser);
                                       setAppUsersDropdownOpen(null);
+                                      setIsAppUserEditOpen(true);
                                     }}
                                   >
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Remove User
+                                    <Edit className="w-4 h-4 mr-2" />
+                                    Edit Details
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
-                            </TableCell> */}
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -958,6 +1130,303 @@ export default function CustomersPage() {
                   }}
                 >
                   {"Edit Profile"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAppUserDetailsOpen} onOpenChange={setIsAppUserDetailsOpen}>
+        <DialogContent className="max-w-2xl">
+          {selectedAppUser && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{`${selectedAppUser.firstName} ${selectedAppUser.lastName}`}</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <p className="font-medium mt-1">{selectedAppUser.email}</p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <p className="font-medium mt-1">{selectedAppUser.phone}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Account Status</Label>
+                    <p className="font-medium mt-1">
+                      {selectedAppUser.isVerified ? "Verified" : "Unverified"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Loyalty Points</Label>
+                    <p className="font-medium mt-1">{selectedAppUser.loyaltyPoints} pts</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Date of Birth</Label>
+                    <p className="font-medium mt-1">
+                      {formatDateValue(selectedAppUser.dateOfBirth)}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Gender</Label>
+                    <p className="font-medium mt-1">
+                      {selectedAppUser.gender || "Not provided"}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Nationality</Label>
+                    <p className="font-medium mt-1">
+                      {getNationalityLabel(
+                        selectedAppUser.nationality,
+                        countries,
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Join Date</Label>
+                    <p className="font-medium mt-1">
+                      {new Date(selectedAppUser.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAppUserDetailsOpen(false);
+                    setSelectedAppUser(null);
+                  }}
+                >
+                  Close
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAppUserDetailsOpen(false);
+                    setIsAppUserEditOpen(true);
+                  }}
+                >
+                  Edit Profile
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAppUserEditOpen} onOpenChange={setIsAppUserEditOpen}>
+        <DialogContent className="max-w-xl">
+          {selectedAppUser && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Member</DialogTitle>
+                <DialogDescription>
+                  Update the member profile information below.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">First Name</Label>
+                    <Input
+                      value={appUserForm.firstName}
+                      onChange={(e) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          firstName: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Last Name</Label>
+                    <Input
+                      value={appUserForm.lastName}
+                      onChange={(e) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          lastName: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Email</Label>
+                    <Input
+                      type="email"
+                      value={appUserForm.email}
+                      onChange={(e) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Phone</Label>
+                    <Input
+                      value={appUserForm.phone}
+                      onChange={(e) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          phone: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Date of Birth</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-full justify-start text-left font-normal ${
+                            !appUserForm.dateOfBirth ? "text-muted-foreground" : ""
+                          }`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {appUserForm.dateOfBirth
+                            ? format(new Date(appUserForm.dateOfBirth), "PPP")
+                            : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={
+                            appUserForm.dateOfBirth
+                              ? new Date(appUserForm.dateOfBirth)
+                              : undefined
+                          }
+                          onSelect={(date) =>
+                            setAppUserForm((prev) => ({
+                              ...prev,
+                              dateOfBirth: date ? format(date, "yyyy-MM-dd") : "",
+                            }))
+                          }
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Gender</Label>
+                    <Select
+                      value={appUserForm.gender || "male"}
+                      onValueChange={(value) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          gender: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Male</SelectItem>
+                        <SelectItem value="female">Female</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div >
+                   <Label className="text-xs text-muted-foreground">Nationality</Label>
+                  <Select
+                    value={appUserForm.nationality || undefined}
+                    onValueChange={(value) =>
+                      setAppUserForm((prev) => ({
+                        ...prev,
+                        nationality: value,
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select nationality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Loyalty Points</Label>
+                    <Input
+                      type="number"
+                      value={appUserForm.loyaltyPoints}
+                      onChange={(e) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          loyaltyPoints: Number(e.target.value || 0),
+                        }))
+                      }
+                    />
+                  </div>
+                  
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                      checked={appUserForm.isVerified}
+                      onCheckedChange={(checked) =>
+                        setAppUserForm((prev) => ({
+                          ...prev,
+                          isVerified: checked === true,
+                        }))
+                      }
+                    />
+                    <Label className="text-sm">Verified</Label>
+                  
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsAppUserEditOpen(false);
+                    setSelectedAppUser(null);
+                  }}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!appUserForm.firstName || !appUserForm.lastName) {
+                      setAppUsersError("First name and last name are required");
+                      return;
+                    }
+                    await handleUpdateAppUser(selectedAppUser.id, appUserForm);
+                  }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Saving..." : "Save Changes"}
                 </Button>
               </DialogFooter>
             </>

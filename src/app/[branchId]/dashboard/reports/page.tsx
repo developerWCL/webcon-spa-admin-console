@@ -94,6 +94,7 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedServiceType, setSelectedServiceType] = useState<string>("all");
+  const [salesSearch, setSalesSearch] = useState("");
   const [selectedNationality, setSelectedNationality] = useState<string | null>(
     null,
   );
@@ -192,14 +193,32 @@ export default function ReportsPage() {
     return `${label} (${formatDate(rangeStart)} - ${formatDate(rangeEnd)})`;
   };
 
+  const getFilteredSalesData = () => {
+    const query = salesSearch.trim().toLowerCase();
+
+    return salesData.filter((booking) => {
+      const matchesServiceType =
+        selectedServiceType !== "all"
+          ? booking.serviceType.toLowerCase() === selectedServiceType
+          : true;
+      const matchesQuery =
+        !query ||
+        [
+          booking.bookingId,
+          booking.customer,
+          booking.promotionCode || "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
+
+      return matchesServiceType && matchesQuery;
+    });
+  };
+
   // Export functions for each tab
   const exportSalesReport = () => {
-    const filteredSalesData =
-      selectedServiceType !== "all"
-        ? salesData.filter(
-            (booking) => booking.serviceType === selectedServiceType,
-          )
-        : salesData;
+        const filteredSalesData = getFilteredSalesData();
 
     if (!filteredSalesData || filteredSalesData.length === 0) {
       alert("No booking data to export");
@@ -232,6 +251,7 @@ export default function ReportsPage() {
           day: "numeric",
         },
       ),
+      "Promotion Code": booking.promotionCode || "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet([]);
@@ -850,20 +870,29 @@ export default function ReportsPage() {
                     Detailed booking information for the selected period.
                   </CardDescription>
                 </div>
-                <Select
-                  value={selectedServiceType || ""}
-                  onValueChange={(value) => setSelectedServiceType(value)}
-                >
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Service Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="service">Service</SelectItem>
-                    <SelectItem value="package">Package</SelectItem>
-                    <SelectItem value="programme">Programme</SelectItem>
-                  </SelectContent>
-                </Select>
+               <div className="flex items-center gap-3">
+                  <Input
+                    type="search"
+                    placeholder="Search bookings..."
+                    value={salesSearch}
+                    onChange={(e) => setSalesSearch(e.target.value)}
+                    className="w-56"
+                  />
+                  <Select
+                    value={selectedServiceType || ""}
+                    onValueChange={(value) => setSelectedServiceType(value)}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All Service Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="package">Package</SelectItem>
+                      <SelectItem value="programme">Programme</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -882,17 +911,11 @@ export default function ReportsPage() {
                       <TableHead>Booking Status</TableHead>
                       <TableHead>Payment Status</TableHead>
                       <TableHead>Booking Date</TableHead>
+                                            <TableHead>Promotion Code</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {salesData
-                      .filter((booking) =>
-                        selectedServiceType !== "all"
-                          ? booking.serviceType.toLowerCase() ===
-                            selectedServiceType
-                          : true,
-                      )
-                      .map((booking, index) => (
+                    {getFilteredSalesData().map((booking, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">
                             {booking.bookingId}
@@ -949,6 +972,7 @@ export default function ReportsPage() {
                               },
                             )}
                           </TableCell>
+                          <TableCell>{booking.promotionCode || "-"}</TableCell>
                         </TableRow>
                       ))}
                   </TableBody>

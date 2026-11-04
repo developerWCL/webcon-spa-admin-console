@@ -497,7 +497,11 @@ export function AddPackageDialog({
             const blob = base64ToBlob(base64String);
             const uploadUrl = uploadUrls[i];
 
-            await uploadImageToS3(uploadUrl.url, blob, "image/jpeg");
+           // Convert blob to Uint8Array then to regular array for server action transmission
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            const fileArray = Array.from(uint8Array);
+            await uploadImageToS3(uploadUrl.url, fileArray, "image/jpeg");
             mediaIds.push(uploadUrl.mediaId);
           }
         } catch (error) {
@@ -1183,35 +1187,43 @@ export function AddPackageDialog({
                                       key={lang.code}
                                       value={lang.code}
                                     >
-                                      <div className="space-y-2">
-                                        {lang.isPrimary ? (
-                                          <Controller
-                                            name={
-                                              `newSubServices.${index}.name` as any
-                                            }
-                                            control={form.control}
-                                            render={({ field }) => (
-                                              <Input
-                                                placeholder="e.g., Swedish Massage, Hot Stone"
-                                                {...field}
-                                              />
-                                            )}
-                                          />
-                                        ) : (
-                                          <Controller
-                                            name={
-                                              `newSubServices.${index}.translations.${langIndex}.name` as any
-                                            }
-                                            control={form.control}
-                                            render={({ field }) => (
-                                              <Input
-                                                placeholder="Optional translation"
-                                                {...field}
-                                              />
-                                            )}
-                                          />
-                                        )}
-                                      </div>
+                                      {lang.isPrimary ? (
+                                        <FormField
+                                          control={form.control}
+                                          name={
+                                            `newSubServices.${index}.name` as any
+                                          }
+                                          render={({ field }) => (
+                                            <FormItem className="space-y-2">
+                                              <FormControl>
+                                                <Input
+                                                  placeholder="e.g., Swedish Massage, Hot Stone"
+                                                  {...field}
+                                                />
+                                              </FormControl>
+                                              <FormMessage />
+                                            </FormItem>
+                                          )}
+                                        />
+                                      ) : (
+                                        <FormField
+                                          control={form.control}
+                                          name={
+                                            `newSubServices.${index}.translations.${langIndex}.name` as any
+                                          }
+                                          render={({ field }) => (
+                                            <FormItem className="space-y-2">
+                                              <FormControl>
+                                                <Input
+                                                  placeholder="Optional translation"
+                                                  {...field}
+                                                />
+                                              </FormControl>
+                                              <FormMessage />
+                                            </FormItem>
+                                          )}
+                                        />
+                                      )}
                                     </TabsContent>
                                   ))}
                                 </Tabs>
@@ -1247,21 +1259,32 @@ export function AddPackageDialog({
                                 <Label className="text-xs font-medium">
                                   Price (THB)
                                 </Label>
-                                <Controller
+                                <FormField
                                   name={`newSubServices.${index}.price` as any}
                                   control={form.control}
                                   render={({ field }) => (
-                                    <Input
-                                      type="number"
-                                      placeholder="500"
-                                      step="0.01"
-                                      {...field}
-                                      onChange={(e) => {
-                                        field.onChange(
-                                          e.target.value as string,
-                                        );
-                                      }}
-                                    />
+                                   <FormItem className="">
+                                      <FormLabel className="text-xs font-medium">
+                                        Price (THB)
+                                      </FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          placeholder="500"
+                                          step="0.01"
+                                          {...field}
+                                          onChange={(e) => {
+                                            field.onChange(
+                                              e.target.value as string,
+                                            );
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                      <p className="text-xs text-muted-foreground">
+                                        0 is allowed for only package services
+                                      </p>
+                                    </FormItem>
                                   )}
                                 />
                                 <p className="text-xs text-muted-foreground">

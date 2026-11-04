@@ -7,7 +7,9 @@ export interface GetBookingsResponse {
   bookingId: string;
   bookingTime: string;
   status: string;
+  amount: string;
   totalAmount: string;
+  discountAmount: string;
   itemsCount: number;
   notes: string | null;
   createdAt: string;
