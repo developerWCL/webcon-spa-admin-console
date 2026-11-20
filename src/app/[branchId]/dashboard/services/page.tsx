@@ -7,7 +7,10 @@ import { ServicesFilters } from "./_components/services-filters";
 import { ServicesGrid } from "./_components/services-grid";
 import { ServicesSkeleton } from "./_components/services-skeleton";
 import { EmptyState } from "./_components/empty-state";
+import { ReorderServicesModal } from "./_components/reorder-services-modal";
 import { getServiceCategories, getServices } from "@/actions/service.actions";
+import { Button } from "@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
 
 export default function ServicesPage({
   params,
@@ -21,9 +24,11 @@ export default function ServicesPage({
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [serviceCategories, setServiceCategories] = useState([]);
   const [services, setServices] = useState([]);
+  const [allServices, setAllServices] = useState([]);
   const [paginationMeta, setPaginationMeta] = useState<any>(null);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingServices, setLoadingServices] = useState(false);
+  const [reorderModalOpen, setReorderModalOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoadingCategories(true);
@@ -61,6 +66,23 @@ export default function ServicesPage({
       setLoadingServices(false);
     }
   }, [branchId, currentPage, itemsPerPage, searchTerm, selectedCategory]);
+
+  // Fetch all services for reorder modal (without pagination)
+  const fetchAllServices = useCallback(async () => {
+    try {
+      const servicesData = await getServices(branchId);
+      if (servicesData) {
+        if (Array.isArray(servicesData)) {
+          setAllServices(servicesData);
+        } else if (servicesData.data && Array.isArray(servicesData.data)) {
+          setAllServices(servicesData.data);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch all services:", error);
+    }
+  }, [branchId]);
+
   // Fetch categories and services from API
   useEffect(() => {
     fetchData();
@@ -92,6 +114,16 @@ export default function ServicesPage({
     // await createCategory(data)
   };
 
+  const handleOpenReorderModal = async () => {
+    await fetchAllServices();
+    setReorderModalOpen(true);
+  };
+
+  const handleReorderComplete = () => {
+    // Refetch services to get updated order
+    fetchData();
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -102,6 +134,14 @@ export default function ServicesPage({
           </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={handleOpenReorderModal}
+            className="gap-2"
+          >
+            <ArrowUpDown className="h-4 w-4" />
+            Reorder Services
+          </Button>
           <ManageCategoriesDialog
             categories={serviceCategories}
             onAddCategory={handleAddCategory}
@@ -113,6 +153,14 @@ export default function ServicesPage({
           />
         </div>
       </div>
+
+      <ReorderServicesModal
+        open={reorderModalOpen}
+        onOpenChange={setReorderModalOpen}
+        services={allServices}
+        onOrderUpdated={handleReorderComplete}
+      />
+
       <ServicesFilters
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}

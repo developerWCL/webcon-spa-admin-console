@@ -188,3 +188,36 @@ export async function deleteService(serviceId: string) {
     throw error;
   }
 }
+
+export async function updateServiceOrder(
+  services: Array<{ id: string; displayOrder: number }>,
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.accessToken) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/services/batch/reorder`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
+        "spa-id": session.spaIds?.[0] || "",
+      },
+      body: JSON.stringify({ services }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to update service order");
+    }
+
+    revalidatePath(`/dashboard/services`);
+    return await response.json();
+  } catch (error) {
+    console.error("Update service order error:", error);
+    throw error;
+  }
+}

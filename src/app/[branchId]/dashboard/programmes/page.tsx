@@ -19,6 +19,7 @@ import {
   Loader2,
   FilterX,
   Copy,
+  ArrowUpDown,
 } from "lucide-react";
 import {
   Select,
@@ -30,6 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CreateProgrammeDialog } from "./_components/create-programme-dialog";
 import { DeleteProgrammeDialog } from "./_components/delete-programme-dialog";
+import { ReorderProgrammesModal } from "./_components/reorder-programmes-modal";
 import { getProgrammesAction } from "@/actions/programme.action";
 import { Pagination } from "@/components/pagination";
 import { Programme } from "@/types/api/programme";
@@ -43,6 +45,7 @@ export default function ProgrammesPage() {
   const { data: session } = useSession();
 
   const [programmes, setProgrammes] = useState<Programme[]>([]);
+  const [allProgrammes, setAllProgrammes] = useState<Programme[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -57,6 +60,7 @@ export default function ProgrammesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [reorderModalOpen, setReorderModalOpen] = useState(false);
   // Fetch programmes from API with server-side pagination
   const fetchProgrammes = async (page: number = 1) => {
     setLoading(true);
@@ -103,6 +107,30 @@ export default function ProgrammesPage() {
     }
   }, [branchId, currentPage, itemsPerPage]);
 
+  const fetchAllProgrammes = async () => {
+    try {
+      const result = await getProgrammesAction(branchId);
+      if (result.success && result.data) {
+        const programmesData = Array.isArray(result.data)
+          ? result.data
+          : result.data.data || [];
+        setAllProgrammes(programmesData);
+      }
+    } catch (error) {
+      console.error("Error fetching all programmes:", error);
+      toast.error("Failed to load programmes for reordering");
+    }
+  };
+
+  const handleOpenReorderModal = async () => {
+    await fetchAllProgrammes();
+    setReorderModalOpen(true);
+  };
+
+  const handleReorderComplete = () => {
+    fetchProgrammes(currentPage);
+  };
+
   const handleCopyLink = async (programmeId: string) => {
     try {
       const bookingEngineUrl =
@@ -129,10 +157,19 @@ export default function ProgrammesPage() {
             Create and manage multi-step treatment programmes
           </p>
         </div>
-        <Button onClick={() => setOpenDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Programme
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleOpenReorderModal}
+          >
+            <ArrowUpDown className="mr-2 h-4 w-4" />
+            Reorder Programmes
+          </Button>
+          <Button onClick={() => setOpenDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Programme
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -360,6 +397,14 @@ export default function ProgrammesPage() {
           fetchProgrammes(1);
           setProgrammesToDelete(null);
         }}
+      />
+
+      {/* Reorder Programmes Modal */}
+      <ReorderProgrammesModal
+        open={reorderModalOpen}
+        onOpenChange={setReorderModalOpen}
+        programmes={allProgrammes}
+        onReorderComplete={handleReorderComplete}
       />
     </div>
   );

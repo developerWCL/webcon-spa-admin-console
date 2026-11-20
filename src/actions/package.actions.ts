@@ -227,3 +227,36 @@ export async function deletePackage(packageId: string) {
     throw error;
   }
 }
+
+export async function updatePackageOrder(
+  packages: Array<{ id: string; displayOrder: number }>,
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.accessToken) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/packages/batch/reorder`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.accessToken}`,
+        "spa-id": session.spaIds?.[0] || "",
+      },
+      body: JSON.stringify({ packages }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to update package order");
+    }
+
+    revalidatePath(`/dashboard/packages`);
+    return await response.json();
+  } catch (error) {
+    console.error("Update package order error:", error);
+    throw error;
+  }
+}

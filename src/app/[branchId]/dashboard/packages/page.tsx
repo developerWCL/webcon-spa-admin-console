@@ -29,10 +29,12 @@ import { Pagination } from "@/components/pagination";
 import type { Service } from "@/types/models/service";
 import { AddPackageDialog } from "./_components/add-package-dialog";
 import { DeletePackageDialog } from "./_components/delete-package-dialog";
+import { ReorderPackagesModal } from "./_components/reorder-packages-modal";
 import { formatNumberWithComma } from "@/utils/utils";
 import { SubFeatureGuard } from "@/components/EditableAction";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { ArrowUpDown } from "lucide-react";
 
 export default function PackagesPage() {
   const params = useParams();
@@ -48,10 +50,12 @@ export default function PackagesPage() {
   const [currentPackagePage, setCurrentPackagePage] = useState(1);
   const [services, setServices] = useState<Service[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
+  const [allPackages, setAllPackages] = useState<any[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [totalPackages, setTotalPackages] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [packagesPerPage, setPackagesPerPage] = useState(10);
+  const [reorderModalOpen, setReorderModalOpen] = useState(false);
 
   // Helper function to flatten services with subservices
   const flattenServicesWithSubServices = (servicesList: Service[]) => {
@@ -130,6 +134,29 @@ export default function PackagesPage() {
     }
   };
 
+  const fetchAllPackages = async () => {
+    try {
+      const result = await getPackages(branchId);
+      if (Array.isArray(result)) {
+        setAllPackages(result);
+      } else if (result && typeof result === "object" && Array.isArray(result.data)) {
+        setAllPackages(result.data);
+      }
+    } catch (error) {
+      console.error("Error fetching all packages:", error);
+      toast.error("Failed to load packages for reordering");
+    }
+  };
+
+  const handleOpenReorderModal = async () => {
+    await fetchAllPackages();
+    setReorderModalOpen(true);
+  };
+
+  const handleReorderComplete = () => {
+    fetchPackages();
+  };
+
   useEffect(() => {
     fetchPackages();
   }, [
@@ -166,15 +193,24 @@ export default function PackagesPage() {
               Manage service packages and bundled offerings
             </p>
           </div>
-          <Button
-            onClick={() => {
-              setEditingPackageId(null);
-              setShowPackageDialog(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create Package
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleOpenReorderModal}
+            >
+              <ArrowUpDown className="mr-2 h-4 w-4" />
+              Reorder Packages
+            </Button>
+            <Button
+              onClick={() => {
+                setEditingPackageId(null);
+                setShowPackageDialog(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create Package
+            </Button>
+          </div>
         </div>
 
         <SubFeatureGuard subFeatureKey="promotions:packages">
@@ -426,6 +462,14 @@ export default function PackagesPage() {
           packageId={deletePackageId || ""}
           packageName={deletePackageName}
           onConfirmDelete={fetchPackages}
+        />
+
+        {/* Reorder Packages Modal */}
+        <ReorderPackagesModal
+          open={reorderModalOpen}
+          onOpenChange={setReorderModalOpen}
+          packages={allPackages}
+          onReorderComplete={handleReorderComplete}
         />
       </div>
     </div>

@@ -231,3 +231,38 @@ export async function deleteProgrammeAction(id: string, branchId: string) {
     };
   }
 }
+
+export async function updateProgrammeOrder(
+  programmes: Array<{ id: string; displayOrder: number }>,
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.accessToken) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/programmes/batch/reorder`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+          "spa-id": session.spaIds?.[0] || "",
+        },
+        body: JSON.stringify({ programmes }),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || "Failed to update programme order");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Update programme order error:", error);
+    throw error;
+  }
+}
