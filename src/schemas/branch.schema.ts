@@ -90,6 +90,17 @@ export const UpdateBranchSchema = z.object({
   operatingHours: z
     .array(OperatingHourSchema)
     .min(1, "At least one operating hour is required"),
+  maxConcurrentBookings: z
+    .number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .optional(),
+  emailNotificationThreshold: z
+    .number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .optional()
+    .nullable(),
 });
 
 export type CreateBranchFormData = z.infer<typeof CreateBranchSchema>;

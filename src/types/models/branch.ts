@@ -16,6 +16,9 @@ export interface Branch {
   isActive: boolean;
   media?: Media[];
   operatingHours?: BranchOperatingHours[];
+  maxConcurrentBookings?: number;
+  emailNotificationThreshold?: number | null;
+  preBookingDay?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }

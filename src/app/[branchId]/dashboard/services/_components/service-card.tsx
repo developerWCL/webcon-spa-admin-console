@@ -18,8 +18,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MoreVertical, Edit, Clock, Trash2, Package, Copy } from "lucide-react";
+import { MoreVertical, Edit, Clock, Trash2, Package, Copy, Calendar } from "lucide-react";
 import { AddServiceDialog } from "./add-service-dialog";
+import { ManageServiceClosuresDialog } from "./manage-service-closures-dialog";
 import { deleteService } from "@/actions/service.actions";
 import { toast } from "sonner";
 import { ServiceCategory, SubService } from "@/types";
@@ -231,6 +232,7 @@ export const ServiceCard = ({
               <Edit className="mr-2 h-3 w-3" />
               Edit
             </Button>
+            
             <Button
               variant="outline"
               size="sm"
@@ -302,6 +304,8 @@ export const ServiceCard = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+     
     </>
   );
 };

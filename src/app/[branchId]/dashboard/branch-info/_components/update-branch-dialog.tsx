@@ -78,6 +78,8 @@ export const UpdateBranchDialog = ({
         email: branch.email || "",
         imageUrls: [],
         mediaIds: branch.media?.map((m: any) => m.id) || [],
+        maxConcurrentBookings: branch.maxConcurrentBookings || 0,
+        emailNotificationThreshold: branch.emailNotificationThreshold || 0,
         operatingHours:
           branch.operatingHours?.map((h: any) => ({
             dayOfWeek: h.dayOfWeek,
@@ -164,6 +166,8 @@ export const UpdateBranchDialog = ({
       if (data.location) cleanedData.location = data.location;
       if (data.phone) cleanedData.phone = data.phone;
       if (data.email) cleanedData.email = data.email;
+      if (data.maxConcurrentBookings !== undefined) cleanedData.maxConcurrentBookings = data.maxConcurrentBookings;
+      if (data.emailNotificationThreshold !== undefined) cleanedData.emailNotificationThreshold = data.emailNotificationThreshold;
       if (data.operatingHours && data.operatingHours.length > 0) {
         cleanedData.operatingHours = data.operatingHours;
       }
@@ -335,6 +339,58 @@ export const UpdateBranchDialog = ({
                   )}
                 />
               </div>
+            </div>
+
+            {/* Booking Settings */}
+            <div className="space-y-4">
+              <h3 className="font-semibold">Booking Settings</h3>
+
+              <FormField
+                control={control}
+                name="maxConcurrentBookings"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Max Concurrent Bookings</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Enter maximum concurrent bookings (0 = unlimited)"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      If set to 0, no limit will be enforced. Admin will be notified when this threshold is exceeded.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={control}
+                name="emailNotificationThreshold"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Send Email At (Bookings)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Enter booking count to send notification"
+                        {...field}
+                        value={field.value || ""}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Email will be sent to the branch email when concurrent bookings reach this number
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             {/* Image Upload */}

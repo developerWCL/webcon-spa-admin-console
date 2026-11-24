@@ -14,7 +14,7 @@ export type FeatureKey =
   | "packages"
   | "reports"
   | "action-logs"
-  | "settings";
+  | "settings" | "service-closure";
 
 export type AccessLevel = "full" | "view" | "hidden";
 
@@ -60,6 +60,8 @@ export const FEATURES = {
     name: "Daily Management",
     href: "dashboard/daily-management",
   },
+
+
   promotions: {
     name: "Promotions",
     href: "dashboard/promotions",
@@ -76,6 +78,10 @@ export const FEATURES = {
   settings: {
     name: "Settings",
     href: "dashboard/settings",
+  },
+  "service-closure": {
+    name: "Closure Management",
+    href: "dashboard/closures",
   },
 } as const;
 
@@ -110,6 +116,7 @@ export const ROLE_PERMISSIONS: Record<
     reports: "full",
     "action-logs": "full",
     settings: "full",
+    "service-closure": "full",
   },
   reception: {
     dashboard: "full",
@@ -125,6 +132,7 @@ export const ROLE_PERMISSIONS: Record<
     reports: "hidden",
     "action-logs": "hidden",
     settings: "hidden",
+    "service-closure": "hidden",
   },
   therapist: {
     dashboard: "full",
@@ -140,6 +148,7 @@ export const ROLE_PERMISSIONS: Record<
     reports: "hidden",
     "action-logs": "hidden",
     settings: "hidden",
+    "service-closure": "hidden",
   },
 };
 

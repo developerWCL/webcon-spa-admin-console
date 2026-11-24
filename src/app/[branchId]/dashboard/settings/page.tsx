@@ -81,6 +81,24 @@ const operatingHoursSchema = z.object({
   }),
 });
 
+const bookingSettingsSchema = z.object({
+  maxConcurrentBookings: z
+    .number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .optional(),
+  emailNotificationThreshold: z
+    .number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .optional(),
+  preBookingDay: z
+    .number()
+    .int("Must be a whole number")
+    .min(0, "Cannot be negative")
+    .optional(),
+});
+
 type OperatingHourRecord = {
   id?: string;
   dayOfWeek: number;
@@ -93,6 +111,7 @@ type OperatingHourRecord = {
 
 type BusinessInfoFormData = z.infer<typeof businessInfoSchema>;
 type OperatingHoursFormData = z.infer<typeof operatingHoursSchema>;
+type BookingSettingsFormData = z.infer<typeof bookingSettingsSchema>;
 
 const days = [
   "Monday",
@@ -141,6 +160,15 @@ export default function SettingsPage() {
       sunday: { start: "09:00", end: "20:00", enabled: false },
     },
   });
+
+  const bookingSettingsForm = useForm<BookingSettingsFormData>({
+    resolver: zodResolver(bookingSettingsSchema),
+    defaultValues: {
+      maxConcurrentBookings: 0,
+      emailNotificationThreshold: 0,
+      preBookingDay: 0,
+    },
+  });
 async function loadBranchData() {
       if (!branchId) return;
 
@@ -158,6 +186,13 @@ async function loadBranchData() {
             email: branch.email || "",
             address: branch.location || "",
             website: branch.website || "https://",
+          });
+
+          // Update booking settings form
+          bookingSettingsForm.reset({
+            maxConcurrentBookings: branch.maxConcurrentBookings || 0,
+            emailNotificationThreshold: branch.emailNotificationThreshold || 0,
+            preBookingDay: branch.preBookingDay || 0,
           });
 
           // Initialize with all days disabled by default
@@ -358,6 +393,28 @@ async function loadBranchData() {
       setSubmitMessage("Error saving operating hours");
       console.error("Error:", error);
       toast.error("Error saving operating hours");
+    }
+  };
+
+  const onBookingSettingsSubmit = async (data: BookingSettingsFormData) => {
+    try {
+      const result = await updateBranch(branchId, {
+        maxConcurrentBookings: data.maxConcurrentBookings,
+        emailNotificationThreshold: data.emailNotificationThreshold,
+        preBookingDay: data.preBookingDay,
+      });
+
+      if (result.success) {
+        setSubmitMessage("Booking settings saved successfully!");
+        toast.success("Booking settings saved successfully!");
+      } else {
+        setSubmitMessage(result.error || "Error saving booking settings");
+        toast.error(result.error || "Error saving booking settings");
+      }
+    } catch (error) {
+      setSubmitMessage("Error saving booking settings");
+      console.error("Error:", error);
+      toast.error("Error saving booking settings");
     }
   };
   return (
@@ -600,6 +657,72 @@ async function loadBranchData() {
               disabled={hoursForm.formState.isSubmitting || isLoading}
             >
               {hoursForm.formState.isSubmitting ? "Saving..." : "Save Hours"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      {/* Booking Settings Form */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{"Booking Settings"}</CardTitle>
+          <CardDescription>{"Configure booking capacity and notifications"}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={bookingSettingsForm.handleSubmit(onBookingSettingsSubmit)}
+            className="space-y-4"
+          >
+             <div className="space-y-2">
+              <Label htmlFor="preBookingDay">{"Pre Booking Time (Days)"}</Label>
+              <Input
+                id="preBookingDay"
+                type="number"
+                min="0"
+                disabled={isLoading}
+                {...bookingSettingsForm.register("preBookingDay", {
+                  valueAsNumber: true,
+                })}
+                placeholder="Enter pre booking time in days"
+              />
+              <p className="text-xs text-muted-foreground">
+                {"Number of days in advance a booking can be made"}
+              </p>
+              {bookingSettingsForm.formState.errors.preBookingDay && (
+                <p className="text-sm text-red-500">
+                  {bookingSettingsForm.formState.errors.preBookingDay.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="emailNotificationThreshold">{"Send Email At (Bookings)"}</Label>
+              <Input
+                id="emailNotificationThreshold"
+                type="number"
+                min="0"
+                disabled={isLoading}
+                {...bookingSettingsForm.register("emailNotificationThreshold", {
+                  valueAsNumber: true,
+                })}
+                placeholder="Enter booking count to send notification"
+              />
+              <p className="text-xs text-muted-foreground">
+                {"Email will be sent to the branch email when concurrent bookings reach this number"}
+              </p>
+              {bookingSettingsForm.formState.errors.emailNotificationThreshold && (
+                <p className="text-sm text-red-500">
+                  {bookingSettingsForm.formState.errors.emailNotificationThreshold.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              disabled={bookingSettingsForm.formState.isSubmitting || isLoading}
+            >
+              {bookingSettingsForm.formState.isSubmitting
+                ? "Saving..."
+                : "Save Booking Settings"}
             </Button>
           </form>
         </CardContent>

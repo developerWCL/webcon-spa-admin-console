@@ -6,6 +6,17 @@
 
 import { ServiceTranslation } from "@/schemas/service.schema";
 
+export interface ServiceClosure {
+  id: string;
+  serviceId: string;
+  closeDate: string;
+  closeTime: string;
+  reason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  deletedAt?: string | null;
+}
+
 export interface Service {
   id: string;
   name: string;
@@ -17,6 +28,7 @@ export interface Service {
   status: "active" | "inactive";
   displayOrder?: number;
   imageUrl?: string;
+  closures?: ServiceClosure[];
   subServices?: SubService[];
   translations?: ServiceTranslation[];
   createdAt?: string;

@@ -52,6 +52,7 @@ import {
   ChartLine,
   Scroll,
   HandHeart,
+  CalendarX,
 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -75,6 +76,7 @@ const iconMap: Record<FeatureKey, any> = {
   reports: ChartLine,
   "action-logs": Scroll,
   settings: Settings,
+  "service-closure": CalendarX,
 };
 
 export default function BranchDashboardLayout({
